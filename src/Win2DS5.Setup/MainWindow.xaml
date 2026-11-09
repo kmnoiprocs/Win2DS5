@@ -1,0 +1,113 @@
+<Window x:Class="Win2DS5.Setup.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Install Win2DS5"
+        Width="760" Height="680"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="{StaticResource WindowBrush}">
+    <Grid Margin="28,22,28,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Width="42" Height="42" CornerRadius="12" Background="{StaticResource AccentBrush}" VerticalAlignment="Top">
+                <TextBlock Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{StaticResource AccentTextBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                <TextBlock x:Name="Heading" Text="Install Win2DS5" FontSize="26" FontWeight="SemiBold" />
+                <TextBlock x:Name="Subheading" Style="{StaticResource Muted}" Margin="0,4,0,0"
+                           Text="Choose where it goes, and which icons you want." />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,22,0,18">
+            <StackPanel x:Name="PlacePage">
+                <TextBlock Style="{StaticResource Muted}"
+                           Text="Win2DS5 turns a PlayStation DualSense into a mouse and keyboard. The installed copy also downloads newer builds when they are published." />
+                <TextBlock Text="Install location" FontWeight="SemiBold" Margin="0,18,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="FolderBox" Height="36" Padding="10,6" VerticalContentAlignment="Center"
+                             Background="{StaticResource FieldBrush}" Foreground="{StaticResource TextBrush}"
+                             BorderBrush="{StaticResource LineBrush}" CaretBrush="{StaticResource TextBrush}" />
+                    <Button Grid.Column="1" Content="Browse" Style="{StaticResource QuietButton}" Margin="10,0,0,0" Click="OnBrowse" />
+                </Grid>
+                <TextBlock x:Name="FolderError" Foreground="#F07178" Margin="0,8,0,0" Visibility="Collapsed" />
+
+                <TextBlock Text="Icons" FontWeight="SemiBold" Margin="0,22,0,4" />
+                <CheckBox x:Name="DesktopBox" Content="Desktop shortcut" IsChecked="True" />
+                <CheckBox x:Name="StartBox" Content="Start menu shortcut" IsChecked="True" />
+                <CheckBox x:Name="TaskbarBox" Content="Pin to the taskbar" IsChecked="True" />
+                <TextBlock Style="{StaticResource Muted}" Margin="0,8,0,0"
+                           Text="Windows sometimes refuses to let an installer pin to the taskbar. If that happens, the last step tells you how to pin it yourself." />
+            </StackPanel>
+
+            <ScrollViewer x:Name="DriverPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Muted}"
+                               Text="Both are free programs from Nefarius. Win2DS5 still installs if you skip them. You can add either one later." />
+
+                    <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,16,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="HidHide" FontSize="16" FontWeight="SemiBold" />
+                                <Border Background="#143D2E" CornerRadius="8" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Recommended" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Muted}" Margin="0,8,0,0"
+                                       Text="Desktop mode uses HidHide to hide the real DualSense from other programs while you are using it as a mouse and keyboard. Without it, a game can also see the physical controller, so the pad may rumble, take the sticks, or show up twice next to the virtual Xbox controller. Mouse and keyboard mapping still works if you skip this." />
+                            <TextBlock x:Name="HidHideState" Style="{StaticResource Muted}" Margin="0,8,0,0" />
+                            <CheckBox x:Name="HidHideBox" Content="Download and install HidHide" IsChecked="True" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,12,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="ViGEmBus" FontSize="16" FontWeight="SemiBold" />
+                                <Border Background="#143D2E" CornerRadius="8" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Recommended" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Muted}" Margin="0,8,0,0"
+                                       Text="ViGEmBus is the driver that creates a virtual Xbox controller. Desktop profiles that press controller buttons, triggers, or sticks as a gamepad need it. Profiles that only move the mouse and type keys do not." />
+                            <TextBlock x:Name="ViGEmState" Style="{StaticResource Muted}" Margin="0,8,0,0" />
+                            <CheckBox x:Name="ViGEmBox" Content="Download and install ViGEmBus" IsChecked="True" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel x:Name="ProgressPage" Visibility="Collapsed">
+                <ProgressBar x:Name="Progress" Height="8" IsIndeterminate="True" Foreground="{StaticResource AccentBrush}" Background="{StaticResource FieldBrush}" BorderThickness="0" />
+                <TextBox x:Name="Log" Margin="0,16,0,0" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                         Background="Transparent" BorderThickness="0" Foreground="{StaticResource MutedBrush}"
+                         VerticalScrollBarVisibility="Auto" Height="360" />
+            </StackPanel>
+
+            <StackPanel x:Name="DonePage" Visibility="Collapsed">
+                <TextBlock x:Name="DoneSummary" FontSize="16" />
+                <TextBlock x:Name="DoneDetails" Style="{StaticResource Muted}" Margin="0,12,0,0" />
+                <CheckBox x:Name="LaunchBox" Content="Launch Win2DS5" IsChecked="True" Margin="0,18,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Button x:Name="BackButton" Content="Back" Style="{StaticResource QuietButton}" HorizontalAlignment="Left" Click="OnBack" Visibility="Collapsed" />
+            <Button x:Name="NextButton" Content="Continue" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Click="OnNext" />
+        </Grid>
+    </Grid>
+</Window>

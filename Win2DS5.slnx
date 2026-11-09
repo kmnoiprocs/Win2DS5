@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Win2DS5.App/Win2DS5.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Win2DS5.Core/Win2DS5.Core.csproj" />
+    <Project Path="src/Win2DS5.DualSense/Win2DS5.DualSense.csproj" />
+    <Project Path="src/Win2DS5.Platform/Win2DS5.Platform.csproj" />
+    <Project Path="src/Win2DS5.Setup/Win2DS5.Setup.csproj">
+      <Platform Project="x64" />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Win2DS5.Core.Tests/Win2DS5.Core.Tests.csproj" />
+  </Folder>
+</Solution>

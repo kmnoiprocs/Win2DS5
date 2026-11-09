@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Win2DS5.App</RootNamespace>
+    <AssemblyName>Win2DS5</AssemblyName>
+    <ApplicationManifest Condition="'$(Win2DS5Publish)' != 'true'">app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="'$(Win2DS5Publish)' == 'true'">app.publish.manifest</ApplicationManifest>
+    <Version>1.0.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <ApplicationIcon>Assets\Win2DS5.ico</ApplicationIcon>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <WindowsSdkPackageVersion>10.0.28000.87</WindowsSdkPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1721" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Win2DS5.Core\Win2DS5.Core.csproj" />
+    <ProjectReference Include="..\Win2DS5.DualSense\Win2DS5.DualSense.csproj" />
+    <ProjectReference Include="..\Win2DS5.Platform\Win2DS5.Platform.csproj" />
+  </ItemGroup>
+</Project>
