@@ -74,8 +74,12 @@ Copy-Item $setupOut (Join-Path $dist "Win2DS5-Setup.exe") -Force
 
 if ($Upload) {
     Write-Host "Publishing GitHub release v$Version"
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     gh release view "v$Version" --repo kmnoiprocs/Win2DS5 *> $null
-    if ($LASTEXITCODE -eq 0) { throw "Release v$Version already exists on GitHub." }
+    $exists = $LASTEXITCODE -eq 0
+    $ErrorActionPreference = $previous
+    if ($exists) { throw "Release v$Version already exists on GitHub." }
     gh release create "v$Version" --repo kmnoiprocs/Win2DS5 --title "Win2DS5 $Version" --notes $Notes $zip $infoPath $setupOut
     if ($LASTEXITCODE -ne 0) { throw "GitHub release upload failed." }
 }
