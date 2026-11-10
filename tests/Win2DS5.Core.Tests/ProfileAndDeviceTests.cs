@@ -16,11 +16,45 @@ public class ProfileAndDeviceTests
         var loaded = JsonSerializer.Deserialize<ProfileDocument>(json, ProfileStore.Options);
         Assert.NotNull(loaded);
         ProfileStore.Repair(loaded);
-        var shift = loaded.Active.GetLayer("shift-touch");
+        var shift = loaded.Active.GetLayout("shift-touch");
         Assert.NotNull(shift);
         Assert.Equal(BindingKind.Key, shift.Get(ControlId.Cross)?.Kind);
         Assert.Equal("Touchpad", loaded.Active.Name);
         Assert.Empty(loaded.Active.ToggleChord);
+    }
+
+    [Fact]
+    public void SavedProfiles_StillReadTheOldLayoutNames()
+    {
+        const string json = """
+            {
+              "profiles": [
+                {
+                  "id": "desktop",
+                  "name": "Desktop",
+                  "baseLayerId": "base",
+                  "layers": [
+                    {
+                      "id": "base",
+                      "name": "Base",
+                      "bindings": {
+                        "L1": { "kind": "LayerHold", "layerId": "shift" }
+                      }
+                    },
+                    { "id": "shift", "name": "Shift", "bindings": {} }
+                  ]
+                }
+              ],
+              "layerLibrary": []
+            }
+            """;
+
+        var loaded = JsonSerializer.Deserialize<ProfileDocument>(json, ProfileStore.Options);
+        Assert.NotNull(loaded);
+        var hold = loaded.Profiles[0].BaseLayout.Get(ControlId.L1);
+        Assert.Equal(BindingKind.LayoutHold, hold?.Kind);
+        Assert.Equal("shift", hold?.LayoutId);
+        Assert.Equal("Shift", loaded.Profiles[0].GetLayout("shift")?.Name);
     }
 
     [Fact]

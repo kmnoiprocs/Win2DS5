@@ -11,15 +11,15 @@ public sealed class MappingResult
     public string SystemPath { get; set; } = "";
     public int Volume { get; set; } = -1;
     public string SwitchProfileId { get; set; } = "";
-    public string ActiveLayerId { get; set; } = "base";
-    public string ActiveLayerName { get; set; } = "Base";
+    public string ActiveLayoutId { get; set; } = "base";
+    public string ActiveLayoutName { get; set; } = "Base";
 }
 
 public sealed class MappingSession
 {
     private readonly HashSet<ControlId> _now = [];
     private readonly HashSet<ControlId> _then = [];
-    private readonly List<(ControlId Control, string LayerId)> _holds = [];
+    private readonly List<(ControlId Control, string LayoutId)> _holds = [];
     private readonly Dictionary<ControlId, double> _scales = [];
     private readonly Dictionary<ControlId, ArmedTap> _taps = [];
     private readonly Dictionary<ControlId, List<KeyStroke>> _keysByControl = [];
@@ -81,7 +81,7 @@ public sealed class MappingSession
                     result.Pause = true;
             }
 
-            PublishLayer(result);
+            PublishLayout(result);
             Copy();
             return result;
         }
@@ -94,7 +94,7 @@ public sealed class MappingSession
         if (!DesktopEnabled)
         {
             _touch.Reset();
-            PublishLayer(result);
+            PublishLayout(result);
             Copy();
             return result;
         }
@@ -102,7 +102,7 @@ public sealed class MappingSession
         if (Keyboard.IsOpen)
         {
             HandleKeyboard(frame, dt, now, result);
-            PublishLayer(result);
+            PublishLayout(result);
             Copy();
             return result;
         }
@@ -110,7 +110,7 @@ public sealed class MappingSession
         DispatchButtons(result, now);
         DispatchPointer(frame, dt, now, result);
         ApplyNudges(result.Commands);
-        PublishLayer(result);
+        PublishLayout(result);
         Copy();
         return result;
     }
@@ -228,10 +228,10 @@ public sealed class MappingSession
         }
     }
 
-    private void PublishLayer(MappingResult result)
+    private void PublishLayout(MappingResult result)
     {
-        result.ActiveLayerId = BindingLayerId();
-        result.ActiveLayerName = FindLayer(result.ActiveLayerId)?.Name ?? "Base";
+        result.ActiveLayoutId = BindingLayoutId();
+        result.ActiveLayoutName = FindLayout(result.ActiveLayoutId)?.Name ?? "Base";
     }
 
     private void DispatchButtons(MappingResult result, TimeSpan now)
@@ -247,14 +247,14 @@ public sealed class MappingSession
             }
         }
 
-        foreach (var control in falling.Where(control => !IsLayerHold(control)))
+        foreach (var control in falling.Where(control => !IsLayoutHold(control)))
             ReleaseControl(control, now, result);
-        foreach (var control in falling.Where(IsLayerHold))
+        foreach (var control in falling.Where(IsLayoutHold))
             ReleaseControl(control, now, result);
 
-        foreach (var control in rising.Where(IsLayerHold))
+        foreach (var control in rising.Where(IsLayoutHold))
             PressControl(control, now, result);
-        foreach (var control in rising.Where(control => !IsLayerHold(control)))
+        foreach (var control in rising.Where(control => !IsLayoutHold(control)))
             PressControl(control, now, result);
 
         foreach (var pair in _scrollHolds.ToList())
@@ -268,10 +268,10 @@ public sealed class MappingSession
 
     private void PressControl(ControlId control, TimeSpan now, MappingResult result)
     {
-        if (BindingLayerId() != Base.Id)
+        if (BindingLayoutId() != Base.Id)
         {
             var reserved = Base.Get(control);
-            if (reserved?.Kind is BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.ToggleKeyboard)
+            if (reserved?.Kind is BindingKind.LayoutHold or BindingKind.LayoutToggle or BindingKind.ToggleKeyboard)
             {
                 Immediate(control, reserved, now, result);
                 return;
@@ -291,7 +291,7 @@ public sealed class MappingSession
         var binding = Resolve(control);
         if (binding == null)
             return;
-        if (binding.Tap != null && binding.Kind != BindingKind.LayerHold)
+        if (binding.Tap != null && binding.Kind != BindingKind.LayoutHold)
         {
             _pending[control] = new PendingLong
             {
@@ -322,11 +322,11 @@ public sealed class MappingSession
     {
         switch (binding.Kind)
         {
-            case BindingKind.LayerHold:
+            case BindingKind.LayoutHold:
                 ArmHold(control, binding, now);
                 return;
-            case BindingKind.LayerToggle:
-                ToggleLayer(binding.LayerId);
+            case BindingKind.LayoutToggle:
+                ToggleLayout(binding.LayoutId);
                 return;
             case BindingKind.ToggleKeyboard:
                 if (!result.ToggleDesktop)
@@ -384,8 +384,8 @@ public sealed class MappingSession
             return;
         switch (binding.Kind)
         {
-            case BindingKind.LayerToggle:
-                ToggleLayer(binding.LayerId);
+            case BindingKind.LayoutToggle:
+                ToggleLayout(binding.LayoutId);
                 return;
             case BindingKind.ToggleKeyboard:
                 if (!result.ToggleDesktop)
@@ -439,16 +439,16 @@ public sealed class MappingSession
 
     private void ArmHold(ControlId control, Binding binding, TimeSpan now)
     {
-        if (string.IsNullOrEmpty(binding.LayerId))
+        if (string.IsNullOrEmpty(binding.LayoutId))
             return;
-        var layer = FindLayer(binding.LayerId);
-        if (layer == null)
+        var layout = FindLayout(binding.LayoutId);
+        if (layout == null)
             return;
 
-        if (!layer.AffectsBindings)
-            _scales[control] = layer.PointerScale;
+        if (!layout.AffectsBindings)
+            _scales[control] = layout.PointerScale;
         else
-            _holds.Add((control, layer.Id));
+            _holds.Add((control, layout.Id));
 
         if (binding.Tap != null && binding.Tap.Kind != BindingKind.None)
         {
@@ -461,25 +461,25 @@ public sealed class MappingSession
         }
     }
 
-    private void ToggleLayer(string? layerId)
+    private void ToggleLayout(string? layoutId)
     {
-        if (string.IsNullOrEmpty(layerId) || layerId == Base.Id || FindLayer(layerId) == null)
+        if (string.IsNullOrEmpty(layoutId) || layoutId == Base.Id || FindLayout(layoutId) == null)
             return;
-        _toggled = _toggled == layerId ? null : layerId;
+        _toggled = _toggled == layoutId ? null : layoutId;
     }
 
     private Binding? Resolve(ControlId control)
     {
-        var activeId = BindingLayerId();
+        var activeId = BindingLayoutId();
         if (activeId != Base.Id)
         {
             var gate = Base.Get(control);
-            if (gate != null && gate.Kind is BindingKind.LayerHold or BindingKind.LayerToggle && gate.LayerId == activeId)
+            if (gate != null && gate.Kind is BindingKind.LayoutHold or BindingKind.LayoutToggle && gate.LayoutId == activeId)
                 return gate;
         }
 
-        var layer = FindLayer(activeId);
-        var binding = layer?.Get(control);
+        var layout = FindLayout(activeId);
+        var binding = layout?.Get(control);
         if (binding == null)
             return null;
         if (binding.Kind != BindingKind.UseBase)
@@ -683,24 +683,24 @@ public sealed class MappingSession
         return true;
     }
 
-    private string BindingLayerId()
+    private string BindingLayoutId()
     {
         if (_holds.Count > 0)
-            return _holds[^1].LayerId;
+            return _holds[^1].LayoutId;
         return string.IsNullOrEmpty(_toggled) ? Base.Id : _toggled;
     }
 
     private double PointerScale()
     {
-        double scale = FindLayer(BindingLayerId())?.PointerScale ?? 1;
+        double scale = FindLayout(BindingLayoutId())?.PointerScale ?? 1;
         foreach (var hold in _holds)
-            scale = Math.Min(scale, FindLayer(hold.LayerId)?.PointerScale ?? 1);
+            scale = Math.Min(scale, FindLayout(hold.LayoutId)?.PointerScale ?? 1);
         foreach (var value in _scales.Values)
             scale = Math.Min(scale, value);
         return scale <= 0 ? 1 : scale;
     }
 
-    private bool IsLayerHold(ControlId control) => Base.Get(control)?.Kind == BindingKind.LayerHold;
+    private bool IsLayoutHold(ControlId control) => Base.Get(control)?.Kind == BindingKind.LayoutHold;
 
     private static bool TogglesPassthrough(Binding? binding)
     {
@@ -714,18 +714,18 @@ public sealed class MappingSession
             steps?.Any(step => step.Code is "app.pause" or "app.resume") == true;
     }
 
-    private IReadOnlyList<Layer> ActiveLayers => Layout?.Layers ?? Profile.Layers;
+    private IReadOnlyList<Layout> ActiveLayouts => Layout?.Layouts ?? Profile.Layouts;
     private StickSettings ActiveLeft => Layout?.LeftStick ?? Profile.LeftStick;
     private StickSettings ActiveRight => Layout?.RightStick ?? Profile.RightStick;
     private TouchpadSettings ActiveTouch => Layout?.Touchpad ?? Profile.Touchpad;
     private GyroSettings ActiveGyro => Layout?.Gyro ?? Profile.Gyro;
-    private Layer? FindLayer(string? id) =>
-        string.IsNullOrEmpty(id) ? null : ActiveLayers.FirstOrDefault(layer => layer.Id == id);
+    private Layout? FindLayout(string? id) =>
+        string.IsNullOrEmpty(id) ? null : ActiveLayouts.FirstOrDefault(layout => layout.Id == id);
 
-    private Layer Base =>
-        (!string.IsNullOrEmpty(Profile.BaseLayerId) ? FindLayer(Profile.BaseLayerId) : null)
-        ?? FindLayer("base")
-        ?? ActiveLayers.First();
+    private Layout Base =>
+        (!string.IsNullOrEmpty(Profile.BaseLayoutId) ? FindLayout(Profile.BaseLayoutId) : null)
+        ?? FindLayout("base")
+        ?? ActiveLayouts.First();
 
     private List<ControlId> Rising()
     {
@@ -882,7 +882,7 @@ public sealed class MappingSession
                     PressAction(control, action, result.Commands);
                 }
             }
-            else if (action.Kind is BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.ToggleKeyboard)
+            else if (action.Kind is BindingKind.LayoutHold or BindingKind.LayoutToggle or BindingKind.ToggleKeyboard)
             {
                 Immediate(control, action, _lastTime, result);
             }
@@ -929,8 +929,8 @@ public sealed class MappingSession
 
         if (step.Code == "app.layer")
         {
-            action.Kind = step.LayerToggle ? BindingKind.LayerToggle : BindingKind.LayerHold;
-            action.LayerId = step.LayerId ?? "";
+            action.Kind = step.LayoutToggle ? BindingKind.LayoutToggle : BindingKind.LayoutHold;
+            action.LayoutId = step.LayoutId ?? "";
             action.Action = step.Code;
         }
 

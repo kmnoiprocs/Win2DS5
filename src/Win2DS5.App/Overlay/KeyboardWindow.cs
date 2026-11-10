@@ -18,7 +18,7 @@ public sealed class KeyboardWindow : Window
     private readonly Grid _body = new() { RowSpacing = 6 };
     private readonly Grid _bar = new() { Height = 42 };
     private readonly Grid _keys = new();
-    private readonly Canvas _selectorLayer = new() { IsHitTestVisible = false };
+    private readonly Canvas _selectorLayout = new() { IsHitTestVisible = false };
     private readonly Grid _selector = new();
     private readonly Rectangle _selectorRing = new() { RadiusX = 9, RadiusY = 9, StrokeThickness = 2 };
     private readonly Rectangle _selectorFlash = new() { RadiusX = 9, RadiusY = 9, Opacity = 0 };
@@ -96,15 +96,15 @@ public sealed class KeyboardWindow : Window
         deck.Children.Add(_keys);
         Grid.SetRow(deck, 2);
         _body.Children.Add(deck);
-        Grid.SetRowSpan(_selectorLayer, 3);
-        _body.Children.Add(_selectorLayer);
+        Grid.SetRowSpan(_selectorLayout, 3);
+        _body.Children.Add(_selectorLayout);
 
         var selectorGlow = new Grid();
         _selector.Children.Add(selectorGlow);
         _selector.Children.Add(_selectorFlash);
         _selector.Children.Add(_selectorRing);
         _selector.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(120) };
-        _selectorLayer.Children.Add(_selector);
+        _selectorLayout.Children.Add(_selector);
         _ = new Glow(selectorGlow, _selectorRing, 12);
 
         _root.Padding = new Thickness(12, 10, 12, 12);

@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Win2DS5.App.Theming;
 using Win2DS5.Core;
+using Layout = Win2DS5.Core.Layout;
 using Windows.System;
 
 namespace Win2DS5.App.Controls;
@@ -32,7 +33,7 @@ public sealed class BindingPanel : UserControl
     private readonly EdgeListEditor _releaseSteps;
     private Action<KeyStroke>? _applyStepKey;
     private bool _loading;
-    private bool _allowLayers = true;
+    private bool _allowLayouts = true;
     private bool _allowLongPress = true;
     private bool _allowBase = true;
     private int _holdMs = 350;
@@ -129,10 +130,10 @@ public sealed class BindingPanel : UserControl
 
     public void Attach(UIElement root) => root.KeyDown += OnKeyDown;
 
-    public void Show(string title, string hint, Binding? binding, IReadOnlyList<Layer> layers, bool allowLayers, bool allowLongPress, bool allowBase, IReadOnlyList<OutputDevice>? outputs = null)
+    public void Show(string title, string hint, Binding? binding, IReadOnlyList<Layout> layouts, bool allowLayouts, bool allowLongPress, bool allowBase, IReadOnlyList<OutputDevice>? outputs = null)
     {
         _loading = true;
-        _allowLayers = allowLayers;
+        _allowLayouts = allowLayouts;
         _allowLongPress = allowLongPress;
         _allowBase = allowBase;
         _title.Text = title;
@@ -147,8 +148,8 @@ public sealed class BindingPanel : UserControl
         _delay.Value = _holdMs;
         _delayValue.Text = $"{_holdMs} ms";
         CancelRecording();
-        _short.SetLayers(layers);
-        _long.SetLayers(layers);
+        _short.SetLayouts(layouts);
+        _long.SetLayouts(layouts);
         var profiles = App.Runtime.Document.Profiles;
         _short.SetProfiles(profiles);
         _long.SetProfiles(profiles);
@@ -217,9 +218,9 @@ public sealed class BindingPanel : UserControl
             return true;
         return output.Kind switch
         {
-            OutputDeviceKind.Mouse => kind is BindingKind.None or BindingKind.Mouse or BindingKind.Scroll or BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.UseBase,
-            OutputDeviceKind.Keyboard => kind is BindingKind.None or BindingKind.Key or BindingKind.ToggleKeyboard or BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.UseBase,
-            _ => kind is BindingKind.None or BindingKind.Pad or BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.UseBase,
+            OutputDeviceKind.Mouse => kind is BindingKind.None or BindingKind.Mouse or BindingKind.Scroll or BindingKind.LayoutHold or BindingKind.LayoutToggle or BindingKind.UseBase,
+            OutputDeviceKind.Keyboard => kind is BindingKind.None or BindingKind.Key or BindingKind.ToggleKeyboard or BindingKind.LayoutHold or BindingKind.LayoutToggle or BindingKind.UseBase,
+            _ => kind is BindingKind.None or BindingKind.Pad or BindingKind.LayoutHold or BindingKind.LayoutToggle or BindingKind.UseBase,
         };
     }
 
@@ -256,7 +257,7 @@ public sealed class BindingPanel : UserControl
             return;
         ConfigureEditors();
         if (_longPress.IsChecked == true && _long.Kind == BindingKind.None)
-            _long.Select(_allowLayers ? BindingKind.LayerHold : BindingKind.Mouse);
+            _long.Select(_allowLayouts ? BindingKind.LayoutHold : BindingKind.Mouse);
         RefreshAdvanced();
         Commit();
     }
@@ -265,8 +266,8 @@ public sealed class BindingPanel : UserControl
     {
         bool split = _longPress.IsChecked == true;
         var output = OutputCatalog.Find(_outputs, _outputId);
-        _short.Configure(_allowLayers, _allowBase && !split, output?.Kind);
-        _long.Configure(_allowLayers, useBase: false, output?.Kind);
+        _short.Configure(_allowLayouts, _allowBase && !split, output?.Kind);
+        _long.Configure(_allowLayouts, useBase: false, output?.Kind);
     }
 
     private void OnOverrideToggled()
@@ -538,7 +539,7 @@ public sealed class BindingPanel : UserControl
         private readonly ComboBox _kind = Combo();
         private readonly ComboBox _mouse = Combo();
         private readonly ComboBox _scroll = Combo();
-        private readonly ComboBox _layer = Combo();
+        private readonly ComboBox _layout = Combo();
         private readonly ComboBox _pad = Combo();
         private readonly ComboBox _profile = Combo();
         private readonly List<string> _profileIds = [];
@@ -548,11 +549,11 @@ public sealed class BindingPanel : UserControl
         private readonly StackPanel _keySection = new() { Spacing = 8 };
         private readonly StackPanel _mouseSection = new() { Spacing = 8 };
         private readonly StackPanel _scrollSection = new() { Spacing = 8 };
-        private readonly StackPanel _layerSection = new() { Spacing = 8 };
+        private readonly StackPanel _layoutSection = new() { Spacing = 8 };
         private readonly StackPanel _padSection = new() { Spacing = 8 };
         private readonly StackPanel _profileSection = new() { Spacing = 8 };
         private readonly List<KeyStroke> _recorded = [];
-        private IReadOnlyList<Layer> _layers = [];
+        private IReadOnlyList<Layout> _layouts = [];
         private bool _loading;
 
         public ActionEditor(bool includeQuick)
@@ -580,8 +581,8 @@ public sealed class BindingPanel : UserControl
             _mouseSection.Children.Add(_mouse);
             _scrollSection.Children.Add(Label("Scroll"));
             _scrollSection.Children.Add(_scroll);
-            _layerSection.Children.Add(Label("Layer"));
-            _layerSection.Children.Add(_layer);
+            _layoutSection.Children.Add(Label("Layout"));
+            _layoutSection.Children.Add(_layout);
             _padSection.Children.Add(Label("Controller button"));
             _padSection.Children.Add(_pad);
             _profileSection.Children.Add(Label("Profile"));
@@ -601,7 +602,7 @@ public sealed class BindingPanel : UserControl
             Root.Children.Add(_keySection);
             Root.Children.Add(_mouseSection);
             Root.Children.Add(_scrollSection);
-            Root.Children.Add(_layerSection);
+            Root.Children.Add(_layoutSection);
             Root.Children.Add(_padSection);
             Root.Children.Add(_profileSection);
             Fill(_mouse, "Left click", "Right click", "Middle click", "Mouse back", "Mouse forward");
@@ -616,7 +617,7 @@ public sealed class BindingPanel : UserControl
             _kind.SelectionChanged += (_, _) => { if (!_loading) { ShowSections(); Changed?.Invoke(); } };
             _mouse.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
             _scroll.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
-            _layer.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
+            _layout.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
             _pad.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
             _profile.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
             Configure(true, true);
@@ -627,19 +628,19 @@ public sealed class BindingPanel : UserControl
         public event Action? RecordRequested;
         public BindingKind Kind => _options.Count == 0 ? BindingKind.None : _options[Math.Clamp(_kind.SelectedIndex, 0, _options.Count - 1)];
 
-        public void SetLayers(IReadOnlyList<Layer> layers)
+        public void SetLayouts(IReadOnlyList<Layout> layouts)
         {
-            _layers = layers;
-            var selected = _layer.SelectedItem as string;
-            _layer.Items.Clear();
-            string home = layers.FirstOrDefault()?.Id ?? "base";
-            foreach (var layer in layers.Where(layer => layer.Id != "base" && layer.Id != home))
-                _layer.Items.Add(layer.Name);
-            if (_layer.Items.Count == 0)
-                _layer.Items.Add("Shift");
-            _layer.SelectedItem = selected;
-            if (_layer.SelectedIndex < 0)
-                _layer.SelectedIndex = 0;
+            _layouts = layouts;
+            var selected = _layout.SelectedItem as string;
+            _layout.Items.Clear();
+            string home = layouts.FirstOrDefault()?.Id ?? "base";
+            foreach (var layout in layouts.Where(layout => layout.Id != "base" && layout.Id != home))
+                _layout.Items.Add(layout.Name);
+            if (_layout.Items.Count == 0)
+                _layout.Items.Add("Shift");
+            _layout.SelectedItem = selected;
+            if (_layout.SelectedIndex < 0)
+                _layout.SelectedIndex = 0;
         }
 
         public void SetProfiles(IReadOnlyList<Profile> profiles)
@@ -668,7 +669,7 @@ public sealed class BindingPanel : UserControl
                 ? _profileIds[_profile.SelectedIndex]
                 : "";
 
-        public void Configure(bool layers, bool useBase, OutputDeviceKind? output = null)
+        public void Configure(bool layouts, bool useBase, OutputDeviceKind? output = null)
         {
             var current = _options.Count == 0 ? BindingKind.None : Kind;
             _loading = true;
@@ -686,10 +687,10 @@ public sealed class BindingPanel : UserControl
                 Add(BindingKind.Scroll, "Scroll");
             }
 
-            if (layers)
+            if (layouts)
             {
-                Add(BindingKind.LayerHold, "Hold layer");
-                Add(BindingKind.LayerToggle, "Toggle layer");
+                Add(BindingKind.LayoutHold, "Hold layout");
+                Add(BindingKind.LayoutToggle, "Toggle layout");
                 if (key)
                     Add(BindingKind.ToggleKeyboard, "On-screen keyboard");
             }
@@ -722,11 +723,11 @@ public sealed class BindingPanel : UserControl
             Select(binding?.Kind ?? BindingKind.None);
             _mouse.SelectedIndex = binding == null ? 0 : Math.Clamp((int)binding.Mouse, 0, _mouse.Items.Count - 1);
             _scroll.SelectedIndex = ScrollIndex(binding);
-            var layerName = _layers.FirstOrDefault(layer => layer.Id == binding?.LayerId)?.Name;
-            if (!string.IsNullOrEmpty(layerName))
-                _layer.SelectedItem = layerName;
-            if (_layer.SelectedIndex < 0 && _layer.Items.Count > 0)
-                _layer.SelectedIndex = 0;
+            var layoutName = _layouts.FirstOrDefault(layout => layout.Id == binding?.LayoutId)?.Name;
+            if (!string.IsNullOrEmpty(layoutName))
+                _layout.SelectedItem = layoutName;
+            if (_layout.SelectedIndex < 0 && _layout.Items.Count > 0)
+                _layout.SelectedIndex = 0;
             int pad = _pads.IndexOf(binding?.PadButton ?? ControlId.Cross);
             _pad.SelectedIndex = pad >= 0 ? pad : 0;
             int profileIndex = _profileIds.IndexOf(binding?.ProfileId ?? "");
@@ -749,8 +750,8 @@ public sealed class BindingPanel : UserControl
                     2 => Binding.Scroll(-120, 0),
                     _ => Binding.Scroll(120, 0),
                 },
-                BindingKind.LayerHold => Binding.Hold(SelectedLayerId()),
-                BindingKind.LayerToggle => Binding.Toggle(SelectedLayerId()),
+                BindingKind.LayoutHold => Binding.Hold(SelectedLayoutId()),
+                BindingKind.LayoutToggle => Binding.Toggle(SelectedLayoutId()),
                 BindingKind.ToggleKeyboard => Binding.Keyboard(),
                 BindingKind.UseBase => Binding.Base(),
                 BindingKind.Pad => Binding.Pad(_pads[Math.Clamp(_pad.SelectedIndex, 0, _pads.Count - 1)]),
@@ -800,15 +801,15 @@ public sealed class BindingPanel : UserControl
             _keySection.Visibility = kind == BindingKind.Key ? Visibility.Visible : Visibility.Collapsed;
             _mouseSection.Visibility = kind == BindingKind.Mouse ? Visibility.Visible : Visibility.Collapsed;
             _scrollSection.Visibility = kind == BindingKind.Scroll ? Visibility.Visible : Visibility.Collapsed;
-            _layerSection.Visibility = kind is BindingKind.LayerHold or BindingKind.LayerToggle ? Visibility.Visible : Visibility.Collapsed;
+            _layoutSection.Visibility = kind is BindingKind.LayoutHold or BindingKind.LayoutToggle ? Visibility.Visible : Visibility.Collapsed;
             _padSection.Visibility = kind == BindingKind.Pad ? Visibility.Visible : Visibility.Collapsed;
             _profileSection.Visibility = kind == BindingKind.Profile ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private string SelectedLayerId()
+        private string SelectedLayoutId()
         {
-            var name = _layer.SelectedItem as string;
-            return _layers.FirstOrDefault(layer => layer.Name == name)?.Id ?? "shift";
+            var name = _layout.SelectedItem as string;
+            return _layouts.FirstOrDefault(layout => layout.Name == name)?.Id ?? "shift";
         }
 
         private static int ScrollIndex(Binding? binding)

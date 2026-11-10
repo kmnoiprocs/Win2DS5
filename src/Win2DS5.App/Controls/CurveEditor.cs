@@ -37,15 +37,15 @@ public sealed class CurveEditor : UserControl
         _knob.Children.Add(knobDot);
         _knob.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(140) };
         _knob.CenterPoint = new Vector3(7, 7, 0);
-        var knobLayer = new Canvas { IsHitTestVisible = false };
-        knobLayer.Children.Add(_knob);
+        var knobLayout = new Canvas { IsHitTestVisible = false };
+        knobLayout.Children.Add(_knob);
 
         _surface.Background = Theme.Brush("PanelAltBrush");
         _surface.Children.Add(_grid);
         _surface.Children.Add(_area);
         _surface.Children.Add(lineGlowHost);
         _surface.Children.Add(_line);
-        _surface.Children.Add(knobLayer);
+        _surface.Children.Add(knobLayout);
         _surface.Children.Add(_value);
         _ = new Glow(lineGlowHost, _line, 10, 0.8f);
         _ = new Glow(knobGlow, knobDot, 10);

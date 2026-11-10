@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Win2DS5.App.Controls;
 using Win2DS5.Core;
+using Layout = Win2DS5.Core.Layout;
 
 namespace Win2DS5.App.Views;
 
@@ -42,41 +43,41 @@ public sealed partial class ProfilesPage : UserControl
             ? keep
             : profiles.FindIndex(profile => profile.Id == App.Runtime.Document.ActiveId);
         ShowSelected();
-        ShowLayers();
+        ShowLayouts();
         _loading = false;
     }
 
-    private void ShowLayers()
+    private void ShowLayouts()
     {
-        LayerList.Items.Clear();
+        LayoutList.Items.Clear();
         var document = App.Runtime.Document;
-        var bases = new List<Layer>();
+        var bases = new List<Layout>();
         foreach (var profile in document.Profiles)
         {
-            if (profile.Layers.Count == 0)
+            if (profile.Layouts.Count == 0)
                 continue;
-            var layer = document.LayerLibrary.FirstOrDefault(item => item.Id == profile.BaseLayer.Id) ?? profile.BaseLayer;
-            if (bases.All(item => item.Id != layer.Id))
-                bases.Add(layer);
+            var layout = document.LayoutLibrary.FirstOrDefault(item => item.Id == profile.BaseLayout.Id) ?? profile.BaseLayout;
+            if (bases.All(item => item.Id != layout.Id))
+                bases.Add(layout);
         }
 
-        var ordered = bases.Concat(document.LayerLibrary.Where(layer => bases.All(item => item.Id != layer.Id)));
-        foreach (var layer in ordered)
+        var ordered = bases.Concat(document.LayoutLibrary.Where(layout => bases.All(item => item.Id != layout.Id)));
+        foreach (var layout in ordered)
         {
-            var users = document.Profiles.Where(profile => profile.Layers.Any(item => item.Id == layer.Id)).Select(profile => profile.Name).ToList();
-            var homes = document.Profiles.Where(profile => profile.Layers.Count > 0 && profile.BaseLayer.Id == layer.Id).Select(profile => profile.Name).ToList();
-            string text = layer.Name;
+            var users = document.Profiles.Where(profile => profile.Layouts.Any(item => item.Id == layout.Id)).Select(profile => profile.Name).ToList();
+            var homes = document.Profiles.Where(profile => profile.Layouts.Count > 0 && profile.BaseLayout.Id == layout.Id).Select(profile => profile.Name).ToList();
+            string text = layout.Name;
             if (homes.Count > 0)
                 text += "  ·  base of " + string.Join(", ", homes);
             else if (users.Count > 0)
                 text += "  ·  " + string.Join(", ", users);
             else
                 text += "  ·  not used";
-            LayerList.Items.Add(text);
+            LayoutList.Items.Add(text);
         }
 
-        if (LayerList.Items.Count == 0)
-            LayerList.Items.Add("No saved layers yet");
+        if (LayoutList.Items.Count == 0)
+            LayoutList.Items.Add("No saved layouts yet");
     }
 
     private Profile? Selected()
@@ -93,11 +94,11 @@ public sealed partial class ProfilesPage : UserControl
             return;
         NameBox.Text = profile.Name;
         ProcessBox.Text = string.Join(", ", profile.ProcessNames);
-        BaseLayerBox.Items.Clear();
-        foreach (var layer in profile.Layers)
-            BaseLayerBox.Items.Add(layer.Name);
-        int baseIndex = profile.Layers.FindIndex(layer => layer.Id == profile.BaseLayer.Id);
-        BaseLayerBox.SelectedIndex = baseIndex >= 0 ? baseIndex : 0;
+        BaseLayoutBox.Items.Clear();
+        foreach (var layout in profile.Layouts)
+            BaseLayoutBox.Items.Add(layout.Name);
+        int baseIndex = profile.Layouts.FindIndex(layout => layout.Id == profile.BaseLayout.Id);
+        BaseLayoutBox.SelectedIndex = baseIndex >= 0 ? baseIndex : 0;
         bool onController = !string.IsNullOrEmpty(App.Runtime.ActiveInputKey) && App.Runtime.Editing.Id == profile.Id;
         UsingLabel.Text = onController
             ? $"Assigned to {App.Runtime.InputLabel}."
@@ -130,8 +131,8 @@ public sealed partial class ProfilesPage : UserControl
         {
             profile.Name = string.IsNullOrWhiteSpace(NameBox.Text) ? profile.Name : NameBox.Text.Trim();
             profile.ProcessNames = ProcessBox.Text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-            if (BaseLayerBox.SelectedIndex >= 0 && BaseLayerBox.SelectedIndex < profile.Layers.Count)
-                ChooseBase(profile, profile.Layers[BaseLayerBox.SelectedIndex]);
+            if (BaseLayoutBox.SelectedIndex >= 0 && BaseLayoutBox.SelectedIndex < profile.Layouts.Count)
+                ChooseBase(profile, profile.Layouts[BaseLayoutBox.SelectedIndex]);
         });
         App.Runtime.Save();
         Reload();
@@ -155,16 +156,16 @@ public sealed partial class ProfilesPage : UserControl
             return;
         }
 
-        var library = App.Runtime.Document.LayerLibrary;
+        var library = App.Runtime.Document.LayoutLibrary;
         var choices = new QuietComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, MinWidth = 280 };
-        choices.Items.Add("New blank base layer");
-        foreach (var layer in library)
-            choices.Items.Add(layer.Name);
+        choices.Items.Add("New blank base layout");
+        foreach (var layout in library)
+            choices.Items.Add(layout.Name);
         choices.SelectedIndex = 0;
         var body = new StackPanel { Spacing = 10 };
         body.Children.Add(new TextBlock
         {
-            Text = "Choose the saved layer this profile starts from.",
+            Text = "Choose the saved layout this profile starts from.",
             TextWrapping = TextWrapping.Wrap,
         });
         body.Children.Add(choices);
@@ -180,7 +181,7 @@ public sealed partial class ProfilesPage : UserControl
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
 
-        Layer? chosen = choices.SelectedIndex > 0 && choices.SelectedIndex - 1 < library.Count
+        Layout? chosen = choices.SelectedIndex > 0 && choices.SelectedIndex - 1 < library.Count
             ? library[choices.SelectedIndex - 1]
             : null;
         var profile = BlankProfile(chosen);
@@ -188,28 +189,28 @@ public sealed partial class ProfilesPage : UserControl
         AddExisting(profile);
     }
 
-    private Profile BlankProfile(Layer? shared)
+    private Profile BlankProfile(Layout? shared)
     {
         var profile = ProfilePresets.Blank();
         profile.Inputs.Clear();
         if (shared != null)
         {
-            profile.Layers = [shared];
-            profile.BaseLayerId = shared.Id;
+            profile.Layouts = [shared];
+            profile.BaseLayoutId = shared.Id;
             return profile;
         }
 
-        string name = BlankLayerName(UniqueName("New profile"));
-        var layer = new Layer { Id = Guid.NewGuid().ToString("N"), Name = name };
-        App.Runtime.Document.LayerLibrary.Add(layer);
-        profile.Layers = [layer];
-        profile.BaseLayerId = layer.Id;
+        string name = BlankLayoutName(UniqueName("New profile"));
+        var layout = new Layout { Id = Guid.NewGuid().ToString("N"), Name = name };
+        App.Runtime.Document.LayoutLibrary.Add(layout);
+        profile.Layouts = [layout];
+        profile.BaseLayoutId = layout.Id;
         return profile;
     }
 
-    private static string BlankLayerName(string profileName)
+    private static string BlankLayoutName(string profileName)
     {
-        var names = App.Runtime.Document.LayerLibrary.Select(layer => layer.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var names = App.Runtime.Document.LayoutLibrary.Select(layout => layout.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!names.Contains("Base"))
             return "Base";
         if (!names.Contains(profileName))
@@ -264,7 +265,7 @@ public sealed partial class ProfilesPage : UserControl
             _ => ProfilePresets.Ds4(),
         };
         created.Name = UniqueName(created.Name);
-        AdoptPresetLayers(created);
+        AdoptPresetLayouts(created);
         AddExisting(created);
     }
 
@@ -282,60 +283,60 @@ public sealed partial class ProfilesPage : UserControl
         ProfileList.SelectedIndex = App.Runtime.Document.Profiles.Count - 1;
     }
 
-    private static void ChooseBase(Profile profile, Layer layer)
+    private static void ChooseBase(Profile profile, Layout layout)
     {
-        profile.Layers.RemoveAll(item => item.Id == layer.Id);
-        profile.Layers.Insert(0, layer);
-        profile.BaseLayerId = layer.Id;
+        profile.Layouts.RemoveAll(item => item.Id == layout.Id);
+        profile.Layouts.Insert(0, layout);
+        profile.BaseLayoutId = layout.Id;
     }
 
-    private static void AdoptPresetLayers(Profile profile)
+    private static void AdoptPresetLayouts(Profile profile)
     {
-        var library = App.Runtime.Document.LayerLibrary;
+        var library = App.Runtime.Document.LayoutLibrary;
         var moved = new Dictionary<string, string>(StringComparer.Ordinal);
-        for (int i = 0; i < profile.Layers.Count; i++)
+        for (int i = 0; i < profile.Layouts.Count; i++)
         {
-            var layer = profile.Layers[i];
-            var existing = library.FirstOrDefault(item => item.Id == layer.Id);
+            var layout = profile.Layouts[i];
+            var existing = library.FirstOrDefault(item => item.Id == layout.Id);
             if (existing == null)
             {
-                library.Add(layer);
+                library.Add(layout);
                 continue;
             }
 
-            if (layer.Id == ProfilePresets.ProfileSelectId)
+            if (layout.Id == ProfilePresets.ProfileSelectId)
             {
-                profile.Layers[i] = existing;
+                profile.Layouts[i] = existing;
                 continue;
             }
 
             string fresh = Guid.NewGuid().ToString("N");
-            moved[layer.Id] = fresh;
-            layer.Id = fresh;
-            library.Add(layer);
+            moved[layout.Id] = fresh;
+            layout.Id = fresh;
+            library.Add(layout);
         }
 
         foreach (var pair in moved)
         {
-            if (profile.BaseLayerId == pair.Key)
-                profile.BaseLayerId = pair.Value;
-            foreach (var layer in profile.Layers)
+            if (profile.BaseLayoutId == pair.Key)
+                profile.BaseLayoutId = pair.Value;
+            foreach (var layout in profile.Layouts)
             {
-                foreach (var binding in layer.Bindings.Values)
+                foreach (var binding in layout.Bindings.Values)
                     Point(binding, pair.Key, pair.Value);
             }
         }
 
-        if (profile.GetLayer(profile.BaseLayerId) == null && profile.Layers.Count > 0)
-            profile.BaseLayerId = profile.Layers[0].Id;
+        if (profile.GetLayout(profile.BaseLayoutId) == null && profile.Layouts.Count > 0)
+            profile.BaseLayoutId = profile.Layouts[0].Id;
     }
 
     private static void Point(Binding? binding, string oldId, string newId)
     {
         if (binding == null)
             return;
-        if (binding.LayerId == oldId)
-            binding.LayerId = newId;
+        if (binding.LayoutId == oldId)
+            binding.LayoutId = newId;
         Point(binding.Tap, oldId, newId);
     }
 

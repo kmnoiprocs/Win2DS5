@@ -75,9 +75,9 @@ public static class ConfigWarnings
     {
         bool removed = false;
         bool missing = false;
-        foreach (var layer in profile.Layers ?? [])
+        foreach (var layout in profile.Layouts ?? [])
         {
-            foreach (var pair in layer.Bindings ?? [])
+            foreach (var pair in layout.Bindings ?? [])
             {
                 if (!Enum.TryParse<ControlId>(pair.Key, out var control))
                     continue;
@@ -105,7 +105,7 @@ public static class ConfigWarnings
         {
             if (!Enum.TryParse<ControlId>(name, out var control) || control == ControlId.None)
                 continue;
-            bool owned = (profile.Layers ?? []).Any(layer => HasAction(layer.Get(control)));
+            bool owned = (profile.Layouts ?? []).Any(layout => HasAction(layout.Get(control)));
             if (!owned)
                 continue;
             warnings.Add(new ConfigWarning(
@@ -148,9 +148,9 @@ public static class ConfigWarnings
             yield return "has a key action with no key.";
         if (binding.Kind == BindingKind.Profile && (document.Profiles ?? []).All(item => item.Id != binding.ProfileId))
             yield return "switches to a profile that was deleted.";
-        if (binding.Kind is BindingKind.LayerHold or BindingKind.LayerToggle &&
-            (profile.Layers ?? []).All(layer => layer.Id != binding.LayerId))
-            yield return "uses a layer that does not exist.";
+        if (binding.Kind is BindingKind.LayoutHold or BindingKind.LayoutToggle &&
+            (profile.Layouts ?? []).All(layout => layout.Id != binding.LayoutId))
+            yield return "uses a layout that does not exist.";
         if (!SendsToOutput(binding))
             yield break;
         if (string.IsNullOrEmpty(binding.OutputId))
@@ -209,9 +209,9 @@ public static class ConfigWarnings
 
     private static IEnumerable<(string OutputId, string What)> PadUses(ProfileDocument document, Profile profile)
     {
-        foreach (var layer in profile.Layers ?? [])
+        foreach (var layout in profile.Layouts ?? [])
         {
-            foreach (var binding in (layer.Bindings ?? []).Values.SelectMany(SelfAndTap))
+            foreach (var binding in (layout.Bindings ?? []).Values.SelectMany(SelfAndTap))
             {
                 if (binding.Kind != BindingKind.Pad || binding.PadButton == ControlId.None)
                     continue;
@@ -237,9 +237,9 @@ public static class ConfigWarnings
             return false;
         if (profile.LeftStick?.OutputId == outputId || profile.RightStick?.OutputId == outputId)
             return true;
-        foreach (var layer in profile.Layers ?? [])
+        foreach (var layout in profile.Layouts ?? [])
         {
-            foreach (var binding in (layer.Bindings ?? []).Values.SelectMany(SelfAndTap))
+            foreach (var binding in (layout.Bindings ?? []).Values.SelectMany(SelfAndTap))
             {
                 if (binding.OutputId == outputId)
                     return true;

@@ -8,6 +8,7 @@ using Win2DS5.App.Controls;
 using Win2DS5.App.Runtime;
 using Win2DS5.App.Theming;
 using Win2DS5.Core;
+using Layout = Win2DS5.Core.Layout;
 using Win2DS5.DualSense;
 using Windows.System;
 
@@ -19,24 +20,24 @@ public sealed partial class ControlsPage : UserControl
 
     private readonly DesktopRuntime _runtime = App.Runtime;
     private string _profileId = "";
-    private string _layerId = "base";
+    private string _layoutId = "base";
     private string _tabSignature = "";
     private ControlId _control = ControlId.Cross;
     private string _outputSignature = "";
-    private readonly Dictionary<string, Layer> _drafts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Layout> _drafts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _appliedDrafts = new(StringComparer.Ordinal);
     private BindingSection _section = BindingSection.Buttons;
     private bool _loading = true;
     private bool _renaming;
     private bool _cancelRename;
-    private bool _renamingLayer;
-    private bool _cancelLayerRename;
+    private bool _renamingLayout;
+    private bool _cancelLayoutRename;
     private bool _colorGuard;
     private bool _shellDirty;
-    private bool _layerDirty;
-    private string _liveLayerId = "";
+    private bool _layoutDirty;
+    private string _liveLayoutId = "";
     private string _swatchProfile = "\0";
-    private string _swatchLayer = "\0";
+    private string _swatchLayout = "\0";
 
     private readonly ComboBox _leftMode = new QuietComboBox { CornerRadius = new CornerRadius(9) };
     private readonly ComboBox _rightMode = new QuietComboBox { CornerRadius = new CornerRadius(9) };
@@ -106,7 +107,7 @@ public sealed partial class ControlsPage : UserControl
             else if (_section == BindingSection.Touchpad)
                 LoadTouch();
         }
-        _liveLayerId = snapshot.ActiveLayerId;
+        _liveLayoutId = snapshot.ActiveLayoutId;
         Diagram.Apply(snapshot);
         SyncAppearance();
     }
@@ -120,12 +121,12 @@ public sealed partial class ControlsPage : UserControl
             _appliedDrafts.Clear();
         }
         _profileId = profileId;
-        if (_runtime.Editing.GetLayer(_layerId) == null)
-            _layerId = _runtime.Editing.BaseLayer.Id;
+        if (_runtime.Editing.GetLayout(_layoutId) == null)
+            _layoutId = _runtime.Editing.BaseLayout.Id;
         if (!_renaming)
             ProfileLabel.Text = _runtime.Editing.Name;
         ControllerTitle.Text = ControllerName();
-        RefreshLayers();
+        RefreshLayouts();
         ShowSection();
         SyncBindingActions();
     }
@@ -333,7 +334,7 @@ public sealed partial class ControlsPage : UserControl
 
     private void ShowSection()
     {
-        BindingTitle.Text = SelectedLayer().Name;
+        BindingTitle.Text = SelectedLayout().Name;
         RefreshSectionTabs();
         bool sticks = _section == BindingSection.Sticks;
         bool touch = _section == BindingSection.Touchpad;
@@ -411,48 +412,48 @@ public sealed partial class ControlsPage : UserControl
             return;
         }
 
-        var layer = EditedLayer();
+        var layout = EditedLayout();
         HoverName.Text = ControlNames.Display(control);
-        HoverBinding.Text = Describe(layer.Get(control));
+        HoverBinding.Text = Describe(layout.Get(control));
         HoverCard.Opacity = 1;
         HoverCard.Translation = Vector3.Zero;
         HintText.Opacity = 0;
     }
 
-    private void OnLayerMenu(object sender, RoutedEventArgs e)
+    private void OnLayoutMenu(object sender, RoutedEventArgs e)
     {
-        if (_renamingLayer)
+        if (_renamingLayout)
             return;
         var profile = _runtime.Editing;
         var flyout = new MenuFlyout();
-        foreach (var layer in profile.Layers)
+        foreach (var layout in profile.Layouts)
         {
-            string id = layer.Id;
+            string id = layout.Id;
             var item = new MenuFlyoutItem
             {
-                Text = layer.Id == profile.BaseLayer.Id ? layer.Name + "  ·  base" : layer.Name,
-                Icon = new FontIcon { Glyph = id == _layerId ? "\uE73E" : "\uE770" },
+                Text = layout.Id == profile.BaseLayout.Id ? layout.Name + "  ·  base" : layout.Name,
+                Icon = new FontIcon { Glyph = id == _layoutId ? "\uE73E" : "\uE770" },
             };
-            item.Click += (_, _) => SelectLayer(id);
+            item.Click += (_, _) => SelectLayout(id);
             flyout.Items.Add(item);
         }
 
-        var library = _runtime.Document.LayerLibrary.Where(layer => profile.Layers.All(item => item.Id != layer.Id)).ToList();
+        var library = _runtime.Document.LayoutLibrary.Where(layout => profile.Layouts.All(item => item.Id != layout.Id)).ToList();
         if (library.Count > 0)
         {
             flyout.Items.Add(new MenuFlyoutSeparator());
-            var add = new MenuFlyoutSubItem { Text = "Add a saved layer" };
-            foreach (var layer in library)
+            var add = new MenuFlyoutSubItem { Text = "Add a saved layout" };
+            foreach (var layout in library)
             {
-                string id = layer.Id;
-                var item = new MenuFlyoutItem { Text = layer.Name, Icon = new FontIcon { Glyph = "\uE710" } };
+                string id = layout.Id;
+                var item = new MenuFlyoutItem { Text = layout.Name, Icon = new FontIcon { Glyph = "\uE710" } };
                 item.Click += (_, _) =>
                 {
-                    var shared = _runtime.Document.LayerLibrary.FirstOrDefault(candidate => candidate.Id == id);
-                    if (shared == null || profile.Layers.Any(existing => existing.Id == id))
+                    var shared = _runtime.Document.LayoutLibrary.FirstOrDefault(candidate => candidate.Id == id);
+                    if (shared == null || profile.Layouts.Any(existing => existing.Id == id))
                         return;
-                    _runtime.Update(() => profile.Layers.Add(shared));
-                    _layerId = id;
+                    _runtime.Update(() => profile.Layouts.Add(shared));
+                    _layoutId = id;
                     _runtime.Save();
                     ReloadMaps();
                 };
@@ -463,29 +464,29 @@ public sealed partial class ControlsPage : UserControl
         }
 
         flyout.Items.Add(new MenuFlyoutSeparator());
-        var create = new MenuFlyoutItem { Text = "New layer", Icon = new FontIcon { Glyph = "\uE710" } };
-        create.Click += async (_, _) => await CreateLayer();
+        var create = new MenuFlyoutItem { Text = "New layout", Icon = new FontIcon { Glyph = "\uE710" } };
+        create.Click += async (_, _) => await CreateLayout();
         flyout.Items.Add(create);
-        flyout.ShowAt(LayerButton);
+        flyout.ShowAt(LayoutButton);
     }
 
-    private void SelectLayer(string id)
+    private void SelectLayout(string id)
     {
-        if (id == _layerId)
+        if (id == _layoutId)
             return;
-        _layerId = id;
-        RefreshLayers();
+        _layoutId = id;
+        RefreshLayouts();
         LoadEditor();
     }
 
-    private async Task CreateLayer()
+    private async Task CreateLayout()
     {
         if (XamlRoot == null)
             return;
-        var box = new TextBox { PlaceholderText = "Layer name" };
+        var box = new TextBox { PlaceholderText = "Layout name" };
         var dialog = new ContentDialog
         {
-            Title = "New layer",
+            Title = "New layout",
             Content = box,
             PrimaryButtonText = "Create",
             CloseButtonText = "Cancel",
@@ -494,35 +495,35 @@ public sealed partial class ControlsPage : UserControl
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
-        string name = string.IsNullOrWhiteSpace(box.Text) ? "Layer" : box.Text.Trim();
+        string name = string.IsNullOrWhiteSpace(box.Text) ? "Layout" : box.Text.Trim();
         _runtime.Update(() =>
         {
             var profile = _runtime.Editing;
-            var layer = new Layer { Id = Guid.NewGuid().ToString("N"), Name = name };
+            var layout = new Layout { Id = Guid.NewGuid().ToString("N"), Name = name };
             foreach (var control in ControlNames.Bindable)
-                layer.Set(control, Binding.Base());
-            _runtime.Document.LayerLibrary.Add(layer);
-            profile.Layers.Add(layer);
-            _layerId = layer.Id;
+                layout.Set(control, Binding.Base());
+            _runtime.Document.LayoutLibrary.Add(layout);
+            profile.Layouts.Add(layout);
+            _layoutId = layout.Id;
         }, true);
         _runtime.Save();
-        RefreshLayers();
+        RefreshLayouts();
         LoadEditor();
     }
 
-    private void RefreshLayers()
+    private void RefreshLayouts()
     {
-        LayerTabs.Children.Clear();
+        LayoutTabs.Children.Clear();
         var profile = _runtime.Editing;
-        var selected = profile.GetLayer(_layerId) ?? profile.BaseLayer;
-        _layerId = selected.Id;
-        if (!_renamingLayer)
-            LayerLabel.Text = selected.Name;
+        var selected = profile.GetLayout(_layoutId) ?? profile.BaseLayout;
+        _layoutId = selected.Id;
+        if (!_renamingLayout)
+            LayoutLabel.Text = selected.Name;
         BindingTitle.Text = selected.Name;
-        foreach (var layer in profile.Layers)
+        foreach (var layout in profile.Layouts)
         {
-            string id = layer.Id;
-            LayerTabs.Children.Add(Tab(layer.Name, id == _layerId, () => SelectLayer(id), id == profile.BaseLayer.Id));
+            string id = layout.Id;
+            LayoutTabs.Children.Add(Tab(layout.Name, id == _layoutId, () => SelectLayout(id), id == profile.BaseLayout.Id));
         }
 
         SyncAppearance();
@@ -531,90 +532,90 @@ public sealed partial class ControlsPage : UserControl
             RefreshButtonList();
     }
 
-    private void OnSaveLayer(object sender, RoutedEventArgs e)
+    private void OnSaveLayout(object sender, RoutedEventArgs e)
     {
-        if (_renamingLayer)
-            CommitLayerRename();
-        var layer = SelectedLayer();
+        if (_renamingLayout)
+            CommitLayoutRename();
+        var layout = SelectedLayout();
         _runtime.Save();
-        _runtime.Notify("Saved " + layer.Name);
+        _runtime.Notify("Saved " + layout.Name);
     }
 
-    private void OnRenameLayer(object sender, RoutedEventArgs e)
+    private void OnRenameLayout(object sender, RoutedEventArgs e)
     {
-        var layer = SelectedLayer();
-        _renamingLayer = true;
-        _cancelLayerRename = false;
-        LayerNameBox.Text = layer.Name;
-        LayerNameBox.Visibility = Visibility.Visible;
-        LayerButton.Visibility = Visibility.Collapsed;
-        LayerNameBox.Focus(FocusState.Programmatic);
-        LayerNameBox.SelectAll();
+        var layout = SelectedLayout();
+        _renamingLayout = true;
+        _cancelLayoutRename = false;
+        LayoutNameBox.Text = layout.Name;
+        LayoutNameBox.Visibility = Visibility.Visible;
+        LayoutButton.Visibility = Visibility.Collapsed;
+        LayoutNameBox.Focus(FocusState.Programmatic);
+        LayoutNameBox.SelectAll();
     }
 
-    private void OnLayerNameKey(object sender, KeyRoutedEventArgs e)
+    private void OnLayoutNameKey(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Enter)
         {
-            CommitLayerRename();
+            CommitLayoutRename();
             e.Handled = true;
         }
         else if (e.Key == VirtualKey.Escape)
         {
-            _cancelLayerRename = true;
-            _renamingLayer = false;
-            LayerNameBox.Visibility = Visibility.Collapsed;
-            LayerButton.Visibility = Visibility.Visible;
+            _cancelLayoutRename = true;
+            _renamingLayout = false;
+            LayoutNameBox.Visibility = Visibility.Collapsed;
+            LayoutButton.Visibility = Visibility.Visible;
             e.Handled = true;
         }
     }
 
-    private void OnLayerNameLost(object sender, RoutedEventArgs e)
+    private void OnLayoutNameLost(object sender, RoutedEventArgs e)
     {
-        if (_cancelLayerRename)
+        if (_cancelLayoutRename)
         {
-            _cancelLayerRename = false;
+            _cancelLayoutRename = false;
             return;
         }
 
-        CommitLayerRename();
+        CommitLayoutRename();
     }
 
-    private void CommitLayerRename()
+    private void CommitLayoutRename()
     {
-        if (!_renamingLayer)
+        if (!_renamingLayout)
             return;
-        _renamingLayer = false;
-        var layer = SelectedLayer();
-        string name = LayerNameBox.Text.Trim();
-        if (name.Length > 0 && name != layer.Name)
+        _renamingLayout = false;
+        var layout = SelectedLayout();
+        string name = LayoutNameBox.Text.Trim();
+        if (name.Length > 0 && name != layout.Name)
         {
-            _runtime.Update(() => layer.Name = name);
+            _runtime.Update(() => layout.Name = name);
             _runtime.Save();
         }
 
-        LayerLabel.Text = layer.Name;
-        LayerNameBox.Visibility = Visibility.Collapsed;
-        LayerButton.Visibility = Visibility.Visible;
-        RefreshLayers();
+        LayoutLabel.Text = layout.Name;
+        LayoutNameBox.Visibility = Visibility.Collapsed;
+        LayoutButton.Visibility = Visibility.Visible;
+        RefreshLayouts();
     }
 
-    private async void OnDeleteLayer(object sender, RoutedEventArgs e)
+    private async void OnDeleteLayout(object sender, RoutedEventArgs e)
     {
         if (XamlRoot == null)
             return;
-        var layer = SelectedLayer();
-        var profiles = _runtime.Document.Profiles.Where(profile => profile.Layers.Any(item => item.Id == layer.Id)).ToList();
-        var blocked = profiles.Where(profile => profile.Layers.Count < 2).Select(profile => profile.Name).ToList();
+        var layout = SelectedLayout();
+        var profiles = _runtime.Document.Profiles.Where(profile => profile.Layouts.Any(item => item.Id == layout.Id)).ToList();
+        var blocked = profiles.Where(profile => profile.Layouts.Count < 2).Select(profile => profile.Name).ToList();
         string used = profiles.Count == 0
-            ? "No profile is using this layer."
+            ? "No profile is using this layout."
             : "Used by:\n" + string.Join("\n", profiles.Select(profile => "• " + profile.Name));
         if (blocked.Count > 0)
         {
             var stopped = new ContentDialog
             {
-                Title = "Delete layer",
-                Content = $"{layer.Name} is the only layer on {string.Join(", ", blocked)}. Keep at least one layer on each profile.\n\n{used}",
+                Title = "Delete layout",
+                Content = $"{layout.Name} is the only layout on {string.Join(", ", blocked)}. Keep at least one layout on each profile.\n\n{used}",
                 CloseButtonText = "Close",
                 XamlRoot = XamlRoot,
             };
@@ -624,8 +625,8 @@ public sealed partial class ControlsPage : UserControl
 
         var dialog = new ContentDialog
         {
-            Title = "Delete layer",
-            Content = $"Delete {layer.Name}?\n\n{used}",
+            Title = "Delete layout",
+            Content = $"Delete {layout.Name}?\n\n{used}",
             PrimaryButtonText = "Delete",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close,
@@ -633,17 +634,17 @@ public sealed partial class ControlsPage : UserControl
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
-        _drafts.Remove(layer.Id);
-        _appliedDrafts.Remove(layer.Id);
+        _drafts.Remove(layout.Id);
+        _appliedDrafts.Remove(layout.Id);
         _runtime.Update(() =>
         {
-            _runtime.Document.LayerLibrary.RemoveAll(item => item.Id == layer.Id);
+            _runtime.Document.LayoutLibrary.RemoveAll(item => item.Id == layout.Id);
             foreach (var profile in _runtime.Document.Profiles)
             {
-                bool home = profile.BaseLayerId == layer.Id;
-                profile.Layers.RemoveAll(item => item.Id == layer.Id);
-                if (home && profile.Layers.Count > 0)
-                    profile.BaseLayerId = profile.Layers[0].Id;
+                bool home = profile.BaseLayoutId == layout.Id;
+                profile.Layouts.RemoveAll(item => item.Id == layout.Id);
+                if (home && profile.Layouts.Count > 0)
+                    profile.BaseLayoutId = profile.Layouts[0].Id;
             }
         }, true);
         _runtime.Save();
@@ -735,61 +736,61 @@ public sealed partial class ControlsPage : UserControl
         SyncAppearance();
     }
 
-    private void OnLayerColorOpened(object sender, object e)
+    private void OnLayoutColorOpened(object sender, object e)
     {
         _colorGuard = true;
-        var layer = SelectedLayer();
-        LayerColorPicker.Color = Theme.TryHex(layer.Light, out var color) ? color : Theme.Accent;
+        var layout = SelectedLayout();
+        LayoutColorPicker.Color = Theme.TryHex(layout.Light, out var color) ? color : Theme.Accent;
         _colorGuard = false;
     }
 
-    private void OnLayerColorChanged(ColorPicker sender, ColorChangedEventArgs args)
+    private void OnLayoutColorChanged(ColorPicker sender, ColorChangedEventArgs args)
     {
         if (_colorGuard)
             return;
-        var layer = SelectedLayer();
+        var layout = SelectedLayout();
         string hex = Theme.ToHex(args.NewColor);
-        if (hex == layer.Light)
+        if (hex == layout.Light)
             return;
-        _layerDirty = true;
-        layer.Light = hex;
-        if (layer.Id == _liveLayerId || _liveLayerId.Length == 0)
+        _layoutDirty = true;
+        layout.Light = hex;
+        if (layout.Id == _liveLayoutId || _liveLayoutId.Length == 0)
         {
             Diagram.SetLight(hex);
             _runtime.RefreshLights();
         }
 
-        _swatchLayer = "\0";
+        _swatchLayout = "\0";
         SyncAppearance();
     }
 
-    private void OnLayerColorClosed(object sender, object e)
+    private void OnLayoutColorClosed(object sender, object e)
     {
-        if (!_layerDirty)
+        if (!_layoutDirty)
             return;
-        _layerDirty = false;
+        _layoutDirty = false;
         _runtime.Save();
         _runtime.RefreshLights();
     }
 
-    private void OnLayerColorDefault(object sender, RoutedEventArgs e)
+    private void OnLayoutColorDefault(object sender, RoutedEventArgs e)
     {
-        var layer = SelectedLayer();
-        layer.Light = "";
-        _layerDirty = false;
+        var layout = SelectedLayout();
+        layout.Light = "";
+        _layoutDirty = false;
         _runtime.Save();
         _runtime.RefreshLights();
-        if (layer.Id == _liveLayerId || _liveLayerId.Length == 0)
+        if (layout.Id == _liveLayoutId || _liveLayoutId.Length == 0)
             Diagram.SetLight("");
-        _swatchLayer = "\0";
+        _swatchLayout = "\0";
         SyncAppearance();
-        LayerColorButton.Flyout.Hide();
+        LayoutColorButton.Flyout.Hide();
     }
 
     private void SyncAppearance()
     {
         var profile = _runtime.Editing;
-        var layer = SelectedLayer();
+        var layout = SelectedLayout();
         string profileKey = profile.Id + "|" + profile.ShellColor + "|" + profile.ShellImage;
         if (profileKey != _swatchProfile)
         {
@@ -798,11 +799,11 @@ public sealed partial class ControlsPage : UserControl
             ProfileShellClear.IsEnabled = profile.ShellColor.Length > 0 || profile.ShellImage.Length > 0;
         }
 
-        string layerKey = layer.Id + "|" + layer.Light;
-        if (layerKey != _swatchLayer)
+        string layoutKey = layout.Id + "|" + layout.Light;
+        if (layoutKey != _swatchLayout)
         {
-            _swatchLayer = layerKey;
-            LayerSwatch.Fill = Theme.TryHex(layer.Light, out var color)
+            _swatchLayout = layoutKey;
+            LayoutSwatch.Fill = Theme.TryHex(layout.Light, out var color)
                 ? new SolidColorBrush(color)
                 : Theme.Brush("AccentBrush");
         }
@@ -822,7 +823,7 @@ public sealed partial class ControlsPage : UserControl
         return Theme.TryHex(color, out var paint) ? new SolidColorBrush(paint) : Theme.Brush("PadShellBrush");
     }
 
-    private Layer SelectedLayer() => _runtime.Editing.GetLayer(_layerId) ?? _runtime.Editing.BaseLayer;
+    private Layout SelectedLayout() => _runtime.Editing.GetLayout(_layoutId) ?? _runtime.Editing.BaseLayout;
 
     private void LoadEditor()
     {
@@ -833,24 +834,24 @@ public sealed partial class ControlsPage : UserControl
                 return;
             var zone = (TouchZone)_zoneBox.SelectedIndex;
             var kind = (GestureKind)_gestureBox.SelectedIndex;
-            Editor.Show($"{zone} {kind}", "A drag never fires a zone. Tap and long-press do.", profile.Touchpad.GetGesture(zone, kind), profile.Layers, false, false, false, _runtime.Document.Outputs);
+            Editor.Show($"{zone} {kind}", "A drag never fires a zone. Tap and long-press do.", profile.Touchpad.GetGesture(zone, kind), profile.Layouts, false, false, false, _runtime.Document.Outputs);
             return;
         }
 
-        var layer = WorkingLayer();
-        var binding = layer.Get(_control);
+        var layout = WorkingLayout();
+        var binding = layout.Get(_control);
         if (_section == BindingSection.Buttons)
         {
-            ButtonEditor.Load(binding, profile.Layers, _runtime.Document.Profiles, _runtime.Document.Outputs);
+            ButtonEditor.Load(binding, profile.Layouts, _runtime.Document.Profiles, _runtime.Document.Outputs);
             SyncBindingActions();
             return;
         }
-        var home = _drafts.TryGetValue(profile.BaseLayer.Id, out var baseDraft) ? baseDraft : profile.BaseLayer;
-        bool locked = _layerId != profile.BaseLayer.Id && home.Get(_control)?.Kind is BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.ToggleKeyboard;
+        var home = _drafts.TryGetValue(profile.BaseLayout.Id, out var baseDraft) ? baseDraft : profile.BaseLayout;
+        bool locked = _layoutId != profile.BaseLayout.Id && home.Get(_control)?.Kind is BindingKind.LayoutHold or BindingKind.LayoutToggle or BindingKind.ToggleKeyboard;
         string hint = locked
-            ? $"On {profile.BaseLayer.Name}, this control changes layers or opens the keyboard, so it stays available in every layer."
+            ? $"On {profile.BaseLayout.Name}, this control changes layouts or opens the keyboard, so it stays available in every layout."
             : "Pick the output this button should drive, then choose the action.";
-        Editor.Show(ControlNames.Display(_control), hint, binding, profile.Layers, !locked, !locked, _layerId != profile.BaseLayer.Id && !locked, _runtime.Document.Outputs);
+        Editor.Show(ControlNames.Display(_control), hint, binding, profile.Layouts, !locked, !locked, _layoutId != profile.BaseLayout.Id && !locked, _runtime.Document.Outputs);
         SyncBindingActions();
     }
 
@@ -869,7 +870,7 @@ public sealed partial class ControlsPage : UserControl
 
         if (binding != null)
             ButtonCatalog.Aim(binding, _runtime.Document.Outputs);
-        WorkingLayer().Set(_control, binding);
+        WorkingLayout().Set(_control, binding);
         SyncBindingActions();
         if (_section == BindingSection.Buttons)
             RefreshButtonList();
@@ -885,7 +886,7 @@ public sealed partial class ControlsPage : UserControl
         {
             if (!DraftDirty(pair.Key))
                 continue;
-            layout.GetLayer(pair.Key)?.ReplaceBindings(pair.Value);
+            layout.GetLayout(pair.Key)?.ReplaceBindings(pair.Value);
         }
 
         if (!_runtime.ApplyControllerMap(layout, profile.Id))
@@ -902,22 +903,22 @@ public sealed partial class ControlsPage : UserControl
 
     private void OnSaveBindings(object sender, RoutedEventArgs e)
     {
-        if (!_drafts.ContainsKey(_layerId) || !DraftDirty(_layerId))
+        if (!_drafts.ContainsKey(_layoutId) || !DraftDirty(_layoutId))
             return;
-        var draft = _drafts[_layerId];
-        var layer = SelectedLayer();
-        _runtime.SaveLayerBindings(layer.Id, draft);
+        var draft = _drafts[_layoutId];
+        var layout = SelectedLayout();
+        _runtime.SaveLayoutBindings(layout.Id, draft);
         _runtime.Save();
-        _appliedDrafts[layer.Id] = SerializeBindings(draft);
-        _runtime.Notify("Saved " + layer.Name);
+        _appliedDrafts[layout.Id] = SerializeBindings(draft);
+        _runtime.Notify("Saved " + layout.Name);
         SyncBindingActions();
         if (_section == BindingSection.Buttons)
             RefreshButtonList();
     }
 
-    private Layer WorkingLayer()
+    private Layout WorkingLayout()
     {
-        var shared = SelectedLayer();
+        var shared = SelectedLayout();
         if (_drafts.TryGetValue(shared.Id, out var draft))
             return draft;
         draft = shared.Clone();
@@ -925,17 +926,17 @@ public sealed partial class ControlsPage : UserControl
         return draft;
     }
 
-    private Layer EditedLayer()
+    private Layout EditedLayout()
     {
-        var shared = SelectedLayer();
+        var shared = SelectedLayout();
         return _drafts.TryGetValue(shared.Id, out var draft) ? draft : shared;
     }
 
-    private bool DraftDirty(string layerId)
+    private bool DraftDirty(string layoutId)
     {
-        if (!_drafts.TryGetValue(layerId, out var draft))
+        if (!_drafts.TryGetValue(layoutId, out var draft))
             return false;
-        var shared = _runtime.Editing.GetLayer(layerId);
+        var shared = _runtime.Editing.GetLayout(layoutId);
         if (shared == null)
             return true;
         return SerializeBindings(draft) != SerializeBindings(shared);
@@ -943,8 +944,8 @@ public sealed partial class ControlsPage : UserControl
 
     private bool AnyDraftDirty() => _drafts.Keys.Any(DraftDirty);
 
-    private static string SerializeBindings(Layer layer) =>
-        System.Text.Json.JsonSerializer.Serialize(layer.Bindings, ProfileStore.Options);
+    private static string SerializeBindings(Layout layout) =>
+        System.Text.Json.JsonSerializer.Serialize(layout.Bindings, ProfileStore.Options);
 
     private bool NeedsApply()
     {
@@ -968,7 +969,7 @@ public sealed partial class ControlsPage : UserControl
     private void SyncBindingActions()
     {
         ApplyBindingsButton.IsEnabled = AnyDraftDirty();
-        SaveBindingsButton.IsEnabled = DraftDirty(_layerId);
+        SaveBindingsButton.IsEnabled = DraftDirty(_layoutId);
         BindingAlert.Visibility = NeedsApply() ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -1138,7 +1139,7 @@ public sealed partial class ControlsPage : UserControl
     private void RefreshButtonList()
     {
         ButtonList.Children.Clear();
-        var layer = EditedLayer();
+        var layout = EditedLayout();
         foreach (var id in ControlsIn(BindingSection.Buttons))
         {
             ControlId pick = id;
@@ -1157,7 +1158,7 @@ public sealed partial class ControlsPage : UserControl
             };
             var bound = new TextBlock
             {
-                Text = Describe(layer.Get(pick)),
+                Text = Describe(layout.Get(pick)),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Foreground = Theme.Brush(on ? "AccentInkBrush" : "MutedBrush"),
@@ -1282,7 +1283,7 @@ public sealed partial class ControlsPage : UserControl
         return seed + " " + n;
     }
 
-    private Button Tab(string text, bool on, Action click, bool baseLayer = false)
+    private Button Tab(string text, bool on, Action click, bool baseLayout = false)
     {
         var name = new TextBlock
         {
@@ -1293,7 +1294,7 @@ public sealed partial class ControlsPage : UserControl
             VerticalAlignment = VerticalAlignment.Center,
         };
         object content = name;
-        if (baseLayer)
+        if (baseLayout)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             row.Children.Add(name);

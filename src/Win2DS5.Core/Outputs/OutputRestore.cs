@@ -7,9 +7,9 @@ public static class OutputRestore
     public static List<MissingOutput> Find(Profile profile, IReadOnlyList<OutputDevice> outputs)
     {
         var found = new Dictionary<string, MissingOutput>(StringComparer.Ordinal);
-        foreach (var layer in profile.Layers ?? [])
+        foreach (var layout in profile.Layouts ?? [])
         {
-            foreach (var binding in (layer.Bindings ?? []).Values)
+            foreach (var binding in (layout.Bindings ?? []).Values)
                 Collect(binding, outputs, found);
         }
 
@@ -84,9 +84,9 @@ public static class OutputRestore
 
     private static void Retarget(Profile profile, string oldId, OutputDevice output)
     {
-        foreach (var layer in profile.Layers ?? [])
+        foreach (var layout in profile.Layouts ?? [])
         {
-            foreach (var binding in (layer.Bindings ?? []).Values)
+            foreach (var binding in (layout.Bindings ?? []).Values)
                 Retarget(binding, oldId, output);
         }
 

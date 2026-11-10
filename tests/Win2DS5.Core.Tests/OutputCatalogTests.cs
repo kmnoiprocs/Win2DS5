@@ -56,9 +56,9 @@ public class OutputCatalogTests
         ProfileStore.Repair(document);
         var binding = Binding.Pad(ControlId.Circle);
         binding.OutputId = "missing-pad";
-        document.Profiles[0].BaseLayer.Set(ControlId.Cross, binding);
+        document.Profiles[0].BaseLayout.Set(ControlId.Cross, binding);
         ProfileStore.Repair(document);
-        Assert.Equal("missing-pad", document.Profiles[0].BaseLayer.Get(ControlId.Cross)?.OutputId);
+        Assert.Equal("missing-pad", document.Profiles[0].BaseLayout.Get(ControlId.Cross)?.OutputId);
         Assert.Null(OutputCatalog.PadTarget(new OutputCommand(OutputKind.PadDown, (int)ControlId.Circle, 0, "missing-pad"), document.Outputs));
     }
 
@@ -69,7 +69,7 @@ public class OutputCatalogTests
         ProfileStore.Repair(document);
         Assert.Contains(document.Outputs, output => output.Kind == OutputDeviceKind.Mouse);
         Assert.Contains(document.Outputs, output => output.Kind == OutputDeviceKind.Keyboard);
-        var cross = document.Profiles[0].BaseLayer.Get(ControlId.Cross);
+        var cross = document.Profiles[0].BaseLayout.Get(ControlId.Cross);
         Assert.Equal(BindingKind.Mouse, cross?.Kind);
         Assert.False(string.IsNullOrEmpty(cross?.OutputId));
     }

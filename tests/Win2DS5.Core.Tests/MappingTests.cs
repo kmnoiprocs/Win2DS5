@@ -16,14 +16,14 @@ public class MappingTests
     }
 
     [Fact]
-    public void ShiftLayer_ChangesTheNextButton()
+    public void ShiftLayout_ChangesTheNextButton()
     {
         var session = Session(ProfilePresets.MouseHand());
         session.Step(Pad.Hold(ControlId.R1), Ms(0));
         var pressed = session.Step(Pad.Hold(ControlId.R1, ControlId.Cross), Ms(20));
         var released = session.Step(Pad.Hold(ControlId.R1), Ms(40));
 
-        Assert.Equal("shift", pressed.ActiveLayerId);
+        Assert.Equal("shift", pressed.ActiveLayoutId);
         Assert.Contains(pressed.Commands, command => command.Kind == OutputKind.KeyDown && command.A == KeyCatalog.LCtrl.ScanCode);
         Assert.Contains(pressed.Commands, command => command.Kind == OutputKind.KeyDown && command.A == KeyCatalog.Letter('C').ScanCode);
         Assert.Contains(released.Commands, command => command.Kind == OutputKind.KeyUp && command.A == KeyCatalog.Letter('C').ScanCode);
@@ -31,7 +31,7 @@ public class MappingTests
     }
 
     [Fact]
-    public void ShiftLayer_DoesNotFallThrough()
+    public void ShiftLayout_DoesNotFallThrough()
     {
         var session = Session(ProfilePresets.MouseHand());
         session.Step(Pad.Hold(ControlId.R1), Ms(0));
@@ -49,7 +49,7 @@ public class MappingTests
     }
 
     [Fact]
-    public void TriggerShift_TapClicksAndHoldChangesLayer()
+    public void TriggerShift_TapClicksAndHoldChangesLayout()
     {
         var session = Session(ProfilePresets.TriggerShift());
         session.Step(Pad.Hold(ControlId.R2), Ms(0));
@@ -61,7 +61,7 @@ public class MappingTests
         held.Step(Pad.Hold(ControlId.R2), Ms(0));
         var chord = held.Step(Pad.Hold(ControlId.R2, ControlId.Cross), Ms(40));
         var release = held.Step(Pad.Hold(), Ms(80));
-        Assert.Equal("shift", chord.ActiveLayerId);
+        Assert.Equal("shift", chord.ActiveLayoutId);
         Assert.Contains(chord.Commands, command => command.A == KeyCatalog.Letter('C').ScanCode && command.Kind == OutputKind.KeyDown);
         Assert.DoesNotContain(release.Commands, command => command.Kind == OutputKind.MouseDown);
     }
@@ -100,7 +100,7 @@ public class MappingTests
     }
 
     [Fact]
-    public void PrecisionLayer_SlowsThePointer()
+    public void PrecisionLayout_SlowsThePointer()
     {
         var fast = MoveRight(ProfilePresets.MouseHand(), precision: false);
         var slow = MoveRight(ProfilePresets.MouseHand(), precision: true);
@@ -198,7 +198,7 @@ public class MappingTests
     public void LongPress_TapSendsTheShortActionAndHoldSendsTheOther()
     {
         var profile = ProfilePresets.MouseHand();
-        profile.BaseLayer.Set(ControlId.Square, new Binding
+        profile.BaseLayout.Set(ControlId.Square, new Binding
         {
             Kind = BindingKind.Key,
             Keys = [KeyCatalog.Space],
@@ -232,7 +232,7 @@ public class MappingTests
     public void LongPress_OverrideDelayBeatsTheGlobalWindow()
     {
         var profile = ProfilePresets.MouseHand();
-        profile.BaseLayer.Set(ControlId.Square, new Binding
+        profile.BaseLayout.Set(ControlId.Square, new Binding
         {
             Kind = BindingKind.Key,
             Keys = [KeyCatalog.Space],
@@ -252,7 +252,7 @@ public class MappingTests
     public void AdvancedSteps_RunOnPressAndReleaseInOrder()
     {
         var profile = ProfilePresets.MouseHand();
-        profile.BaseLayer.Set(ControlId.R2, new Binding
+        profile.BaseLayout.Set(ControlId.R2, new Binding
         {
             Kind = BindingKind.None,
             Advanced = true,
@@ -285,7 +285,7 @@ public class MappingTests
     public void AdvancedSteps_StayQuietWhileLongPressIsEnabled()
     {
         var profile = ProfilePresets.MouseHand();
-        profile.BaseLayer.Set(ControlId.Square, new Binding
+        profile.BaseLayout.Set(ControlId.Square, new Binding
         {
             Kind = BindingKind.Key,
             Keys = [KeyCatalog.Space],
@@ -307,7 +307,7 @@ public class MappingTests
     public void PadBinding_PressesTheChosenControllerButton()
     {
         var profile = ProfilePresets.MouseHand();
-        profile.BaseLayer.Set(ControlId.Triangle, Binding.Pad(ControlId.Circle));
+        profile.BaseLayout.Set(ControlId.Triangle, Binding.Pad(ControlId.Circle));
         var session = Session(profile);
         var down = session.Step(Pad.Hold(ControlId.Triangle), Ms(0));
         var up = session.Step(Pad.Hold(), Ms(30));
@@ -352,7 +352,7 @@ public class MappingTests
     public void PadBinding_PressesEverySelectedGamepad()
     {
         var profile = ProfilePresets.Blank();
-        profile.BaseLayer.Set(ControlId.Cross, new Binding
+        profile.BaseLayout.Set(ControlId.Cross, new Binding
         {
             Kind = BindingKind.Pad,
             PadButton = ControlId.Cross,
@@ -370,7 +370,7 @@ public class MappingTests
     public void MacroMouseMove_UsesTheStepDistanceAndPositiveYMovesUp()
     {
         var profile = ProfilePresets.Blank();
-        profile.BaseLayer.Set(ControlId.Square, new Binding
+        profile.BaseLayout.Set(ControlId.Square, new Binding
         {
             Advanced = true,
             DownMacros = [new MacroStep { Code = "mouse.move", ScrollX = 5, ScrollY = 25 }],
@@ -386,7 +386,7 @@ public class MappingTests
     public void MouseMove_PositiveYMovesThePointerUp()
     {
         var profile = ProfilePresets.Blank();
-        profile.BaseLayer.Set(ControlId.Square, new Binding
+        profile.BaseLayout.Set(ControlId.Square, new Binding
         {
             Kind = BindingKind.MouseMove,
             ScrollX = 12,
@@ -403,7 +403,7 @@ public class MappingTests
     public void BothEdge_PressesAndReleasesInOneStep()
     {
         var profile = ProfilePresets.Blank();
-        profile.BaseLayer.Set(ControlId.Cross, new Binding
+        profile.BaseLayout.Set(ControlId.Cross, new Binding
         {
             Advanced = true,
             DownMacros = [new MacroStep { Code = "mouse.left", Both = true }],
@@ -419,7 +419,7 @@ public class MappingTests
     public void ToggleWin2DS5_PausesAndResumesOnTheSameButton()
     {
         var profile = ProfilePresets.Blank();
-        profile.BaseLayer.Set(ControlId.Mute, new Binding { Kind = BindingKind.Pause });
+        profile.BaseLayout.Set(ControlId.Mute, new Binding { Kind = BindingKind.Pause });
         var session = Session(profile);
         var pause = session.Step(Pad.Hold(ControlId.Mute), Ms(0));
         Assert.True(pause.Pause);

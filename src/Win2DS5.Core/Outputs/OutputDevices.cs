@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Win2DS5.Core;
 
 public enum OutputDeviceKind
@@ -147,21 +149,22 @@ public static class OutputCatalog
 public sealed class InputLayout
 {
     public string DeviceKey { get; set; } = "";
-    public List<Layer> Layers { get; set; } = [];
+    [JsonPropertyName("layers")]
+    public List<Layout> Layouts { get; set; } = [];
     public StickSettings LeftStick { get; set; } = new();
     public StickSettings RightStick { get; set; } = new();
     public TouchpadSettings Touchpad { get; set; } = new();
     public GyroSettings Gyro { get; set; } = new();
 
-    public Layer? GetLayer(string id) => Layers.FirstOrDefault(layer => layer.Id == id);
+    public Layout? GetLayout(string id) => Layouts.FirstOrDefault(layout => layout.Id == id);
 
-    public Layer BaseLayer => GetLayer("base") ?? Layers[0];
+    public Layout BaseLayout => GetLayout("base") ?? Layouts[0];
 
     public static InputLayout FromProfile(Profile profile, string deviceKey)
     {
         var seed = new InputLayout
         {
-            Layers = profile.Layers,
+            Layouts = profile.Layouts,
             LeftStick = profile.LeftStick,
             RightStick = profile.RightStick,
             Touchpad = profile.Touchpad,
@@ -171,14 +174,14 @@ public sealed class InputLayout
             System.Text.Json.JsonSerializer.Serialize(seed, ProfileStore.Options),
             ProfileStore.Options) ?? new InputLayout();
         copy.DeviceKey = deviceKey;
-        copy.Layers ??= [];
+        copy.Layouts ??= [];
         copy.LeftStick ??= new StickSettings();
         copy.RightStick ??= new StickSettings();
         copy.Touchpad ??= new TouchpadSettings();
         copy.Touchpad.Gestures ??= new Dictionary<string, Binding>();
         copy.Gyro ??= new GyroSettings();
-        if (copy.Layers.Count == 0)
-            copy.Layers.Add(new Layer { Id = "base", Name = "Base" });
+        if (copy.Layouts.Count == 0)
+            copy.Layouts.Add(new Layout { Id = "base", Name = "Base" });
         return copy;
     }
 }

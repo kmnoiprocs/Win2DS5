@@ -85,45 +85,45 @@
                     </StackPanel>
                     </StackPanel>
                     <StackPanel Spacing="6">
-                        <TextBlock Text="LAYER" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="LAYOUT" Style="{StaticResource EyebrowText}" />
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Grid Width="196" Height="34" VerticalAlignment="Center">
-                                <Button x:Name="LayerButton" Height="34" MinHeight="0" VerticalAlignment="Stretch"
+                                <Button x:Name="LayoutButton" Height="34" MinHeight="0" VerticalAlignment="Stretch"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" VerticalContentAlignment="Center"
-                                        Style="{StaticResource QuietButtonStyle}" Click="OnLayerMenu" CornerRadius="10" Padding="12,0">
+                                        Style="{StaticResource QuietButtonStyle}" Click="OnLayoutMenu" CornerRadius="10" Padding="12,0">
                                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                        <TextBlock x:Name="LayerLabel" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="140" />
+                                        <TextBlock x:Name="LayoutLabel" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="140" />
                                         <FontIcon Glyph="&#xE70D;" FontSize="10" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <TextBox x:Name="LayerNameBox" Visibility="Collapsed" Height="34" MinHeight="0" VerticalAlignment="Stretch"
+                                <TextBox x:Name="LayoutNameBox" Visibility="Collapsed" Height="34" MinHeight="0" VerticalAlignment="Stretch"
                                          VerticalContentAlignment="Center" CornerRadius="10" Padding="12,0"
-                                         KeyDown="OnLayerNameKey" LostFocus="OnLayerNameLost" />
+                                         KeyDown="OnLayoutNameKey" LostFocus="OnLayoutNameLost" />
                             </Grid>
                             <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                                <Button x:Name="LayerColorButton" Width="34" Height="34" Padding="0" CornerRadius="10"
+                                <Button x:Name="LayoutColorButton" Width="34" Height="34" Padding="0" CornerRadius="10"
                                         Style="{StaticResource GhostButtonStyle}" ToolTipService.ToolTip="Lightbar color">
-                                    <Ellipse x:Name="LayerSwatch" Width="16" Height="16" Fill="{StaticResource AccentBrush}" Stroke="{StaticResource LineBrush}" StrokeThickness="1" />
+                                    <Ellipse x:Name="LayoutSwatch" Width="16" Height="16" Fill="{StaticResource AccentBrush}" Stroke="{StaticResource LineBrush}" StrokeThickness="1" />
                                     <Button.Flyout>
-                                        <Flyout Opened="OnLayerColorOpened" Closed="OnLayerColorClosed">
+                                        <Flyout Opened="OnLayoutColorOpened" Closed="OnLayoutColorClosed">
                                             <StackPanel Spacing="10" Width="280">
-                                                <ColorPicker x:Name="LayerColorPicker" IsAlphaEnabled="False" IsMoreButtonVisible="False"
-                                                             IsColorChannelTextInputVisible="False" ColorChanged="OnLayerColorChanged" />
-                                                <Button Content="Use the accent color" Style="{StaticResource QuietButtonStyle}" Click="OnLayerColorDefault" />
+                                                <ColorPicker x:Name="LayoutColorPicker" IsAlphaEnabled="False" IsMoreButtonVisible="False"
+                                                             IsColorChannelTextInputVisible="False" ColorChanged="OnLayoutColorChanged" />
+                                                <Button Content="Use the accent color" Style="{StaticResource QuietButtonStyle}" Click="OnLayoutColorDefault" />
                                             </StackPanel>
                                         </Flyout>
                                     </Button.Flyout>
                                 </Button>
                                 <Button Width="34" Height="34" Padding="0" CornerRadius="10"
-                                        Style="{StaticResource GhostButtonStyle}" Click="OnSaveLayer" ToolTipService.ToolTip="Save layer">
+                                        Style="{StaticResource GhostButtonStyle}" Click="OnSaveLayout" ToolTipService.ToolTip="Save layout">
                                     <FontIcon Glyph="&#xE74E;" FontSize="14" />
                                 </Button>
                                 <Button Width="34" Height="34" Padding="0" CornerRadius="10"
-                                        Style="{StaticResource GhostButtonStyle}" Click="OnRenameLayer" ToolTipService.ToolTip="Rename layer">
+                                        Style="{StaticResource GhostButtonStyle}" Click="OnRenameLayout" ToolTipService.ToolTip="Rename layout">
                                     <FontIcon Glyph="&#xE70F;" FontSize="14" />
                                 </Button>
                                 <Button Width="34" Height="34" Padding="0" CornerRadius="10"
-                                        Style="{StaticResource GhostButtonStyle}" Click="OnDeleteLayer" ToolTipService.ToolTip="Delete layer">
+                                        Style="{StaticResource GhostButtonStyle}" Click="OnDeleteLayout" ToolTipService.ToolTip="Delete layout">
                                     <FontIcon Glyph="&#xE74D;" FontSize="14" />
                                 </Button>
                             </StackPanel>
@@ -138,7 +138,7 @@
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalAlignment="Center">
                         <Border Background="{StaticResource PanelAltBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
                                 CornerRadius="12" Padding="3">
-                            <StackPanel x:Name="LayerTabs" Orientation="Horizontal" Spacing="2" />
+                            <StackPanel x:Name="LayoutTabs" Orientation="Horizontal" Spacing="2" />
                         </Border>
                     </ScrollViewer>
                     <Grid Grid.Row="1">
@@ -167,16 +167,16 @@
                 </Grid.RowDefinitions>
                 <StackPanel Padding="18,16,18,0" Spacing="10">
                     <StackPanel Spacing="2">
-                        <TextBlock Text="LAYER BINDINGS" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="LAYOUT BINDINGS" Style="{StaticResource EyebrowText}" />
                         <TextBlock x:Name="BindingTitle" FontFamily="{StaticResource DisplayFont}" FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button x:Name="ApplyBindingsButton" Content="Apply" Style="{StaticResource PrimaryButtonStyle}"
                                 Click="OnApplyBindings" IsEnabled="False"
-                                ToolTipService.ToolTip="Use these mappings on this controller. Other profiles keep the saved layer." />
+                                ToolTipService.ToolTip="Use these mappings on this controller. Other profiles keep the saved layout." />
                         <Button x:Name="SaveBindingsButton" Content="Save Changes" Style="{StaticResource QuietButtonStyle}"
                                 Click="OnSaveBindings" IsEnabled="False"
-                                ToolTipService.ToolTip="Write this layer so every profile that uses it gets the change." />
+                                ToolTipService.ToolTip="Write this layout so every profile that uses it gets the change." />
                     </StackPanel>
                     <StackPanel x:Name="BindingAlert" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
                         <FontIcon Glyph="&#xE7BA;" FontSize="12" Foreground="{StaticResource AmberBrush}" VerticalAlignment="Center" />

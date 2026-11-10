@@ -51,7 +51,7 @@ public static class ButtonCatalog
             BindingKind.Scroll => binding.ScrollY > 0 ? "mouse.up" : binding.ScrollY < 0 ? "mouse.down" : binding.ScrollX < 0 ? "mouse.scroll-left" : "mouse.scroll-right",
             BindingKind.MouseMove => "mouse.move",
             BindingKind.Key => MatchKey(binding),
-            BindingKind.LayerHold or BindingKind.LayerToggle => "app.layer",
+            BindingKind.LayoutHold or BindingKind.LayoutToggle => "app.layer",
             BindingKind.ToggleKeyboard => "app.keyboard",
             BindingKind.Profile => "app.profile",
             BindingKind.Pause or BindingKind.Resume => "app.pause",
@@ -366,7 +366,7 @@ public static class ButtonCatalog
                 new("media.up", "Volume Up"), new("media.down", "Volume Down"), new("media.volume-custom", "Volume Custom"), new("media.mute", "Mute"),
             ]),
             ("Win2DS5 Controls", [
-                new("app.layer", "Layer Modifier Button"), new("app.keyboard", "On-Screen Keyboard"), new("app.profile", "Profiles"),
+                new("app.layer", "Layout Modifier Button"), new("app.keyboard", "On-Screen Keyboard"), new("app.profile", "Profiles"),
                 new("app.pause", "Toggle Win2DS5"),
             ]),
             ("DS4 Controls", PadGroup("ds4")),

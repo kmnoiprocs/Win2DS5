@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Win2DS5.Core;
+using Layout = Win2DS5.Core.Layout;
 
 namespace Win2DS5.App.Controls;
 
@@ -10,8 +11,8 @@ public sealed class ActionExtras : StackPanel
     private readonly NumberBox _moveX = Number("X", -4000, 4000, 0);
     private readonly NumberBox _moveY = Number("Y", -4000, 4000, 0);
     private readonly StackPanel _move = new() { Spacing = 8 };
-    private readonly ComboBox _layerMode = Box();
-    private readonly ComboBox _layer = Box();
+    private readonly ComboBox _layoutMode = Box();
+    private readonly ComboBox _layout = Box();
     private readonly ComboBox _profile = Box();
     private readonly Slider _volume = new() { Minimum = 0, Maximum = 100, StepFrequency = 1 };
     private readonly NumberBox _volumeBox = Number("Volume", 0, 100, 50);
@@ -22,7 +23,7 @@ public sealed class ActionExtras : StackPanel
     private readonly TextBlock _padNote = new() { TextWrapping = TextWrapping.Wrap, Style = (Style)Application.Current.Resources["CaptionText"] };
     private readonly List<(CheckBox Box, string Id)> _padBoxes = [];
     private readonly List<string> _chosenPads = [];
-    private readonly List<string> _layerIds = [];
+    private readonly List<string> _layoutIds = [];
     private readonly List<string> _profileIds = [];
     private List<OutputDevice> _outputs = [];
     private bool _loading;
@@ -32,16 +33,16 @@ public sealed class ActionExtras : StackPanel
     {
         Spacing = 8;
         Visibility = Visibility.Collapsed;
-        _layerMode.Header = "Hold/Toggle";
-        _layerMode.Items.Add("Hold Layer");
-        _layerMode.Items.Add("Toggle Layer");
-        _layer.Header = "Layer";
+        _layoutMode.Header = "Hold/Toggle";
+        _layoutMode.Items.Add("Hold Layout");
+        _layoutMode.Items.Add("Toggle Layout");
+        _layout.Header = "Layout";
         _profile.Header = "Profile";
         _scroll.ValueChanged += (_, _) => Notify();
         _moveX.ValueChanged += (_, _) => Notify();
         _moveY.ValueChanged += (_, _) => Notify();
-        _layerMode.SelectionChanged += (_, _) => Notify();
-        _layer.SelectionChanged += (_, _) => Notify();
+        _layoutMode.SelectionChanged += (_, _) => Notify();
+        _layout.SelectionChanged += (_, _) => Notify();
         _profile.SelectionChanged += (_, _) => Notify();
         _volume.ValueChanged += (_, e) =>
         {
@@ -94,8 +95,8 @@ public sealed class ActionExtras : StackPanel
         _volumeRow.Children.Add(_volumeBox);
         Children.Add(_scroll);
         Children.Add(_move);
-        Children.Add(_layerMode);
-        Children.Add(_layer);
+        Children.Add(_layoutMode);
+        Children.Add(_layout);
         Children.Add(_profile);
         Children.Add(_volumeRow);
         Children.Add(_open);
@@ -113,16 +114,16 @@ public sealed class ActionExtras : StackPanel
 
     public Func<Task<string?>>? BrowseFolder { get; set; }
 
-    public void SetContext(IReadOnlyList<Layer> layers, IReadOnlyList<Profile> profiles, IReadOnlyList<OutputDevice> outputs)
+    public void SetContext(IReadOnlyList<Layout> layouts, IReadOnlyList<Profile> profiles, IReadOnlyList<OutputDevice> outputs)
     {
         _loading = true;
         _outputs = outputs.ToList();
-        _layerIds.Clear();
-        _layer.Items.Clear();
-        foreach (var layer in layers)
+        _layoutIds.Clear();
+        _layout.Items.Clear();
+        foreach (var layout in layouts)
         {
-            _layerIds.Add(layer.Id);
-            _layer.Items.Add(layer.Name);
+            _layoutIds.Add(layout.Id);
+            _layout.Items.Add(layout.Name);
         }
 
         _profileIds.Clear();
@@ -145,22 +146,22 @@ public sealed class ActionExtras : StackPanel
             _scroll.Value = 120;
         _moveX.Value = seed.ScrollX;
         _moveY.Value = seed.ScrollY;
-        _layerMode.SelectedIndex = seed.Kind == BindingKind.LayerToggle ? 1 : 0;
-        _layer.SelectedIndex = IndexOf(_layerIds, seed.LayerId);
+        _layoutMode.SelectedIndex = seed.Kind == BindingKind.LayoutToggle ? 1 : 0;
+        _layout.SelectedIndex = IndexOf(_layoutIds, seed.LayoutId);
         _profile.SelectedIndex = IndexOf(_profileIds, seed.ProfileId);
         _volume.Value = Math.Clamp(seed.ScrollY, 0, 100);
         _volumeBox.Value = _volume.Value;
         _path.Text = seed.Path ?? "";
         bool scroll = _code is "mouse.up" or "mouse.down" or "mouse.scroll-left" or "mouse.scroll-right";
         bool move = _code == "mouse.move";
-        bool layer = _code == "app.layer";
+        bool layout = _code == "app.layer";
         bool profile = _code == "app.profile";
         bool volume = _code == "media.volume-custom";
         bool open = _code == "windows.open";
         _scroll.Visibility = scroll ? Visibility.Visible : Visibility.Collapsed;
         _move.Visibility = move ? Visibility.Visible : Visibility.Collapsed;
-        _layerMode.Visibility = layer ? Visibility.Visible : Visibility.Collapsed;
-        _layer.Visibility = layer ? Visibility.Visible : Visibility.Collapsed;
+        _layoutMode.Visibility = layout ? Visibility.Visible : Visibility.Collapsed;
+        _layout.Visibility = layout ? Visibility.Visible : Visibility.Collapsed;
         _profile.Visibility = profile ? Visibility.Visible : Visibility.Collapsed;
         _volumeRow.Visibility = volume ? Visibility.Visible : Visibility.Collapsed;
         _open.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
@@ -187,8 +188,8 @@ public sealed class ActionExtras : StackPanel
 
         if (step.Code == "app.layer")
         {
-            seed.Kind = step.LayerToggle ? BindingKind.LayerToggle : BindingKind.LayerHold;
-            seed.LayerId = step.LayerId;
+            seed.Kind = step.LayoutToggle ? BindingKind.LayoutToggle : BindingKind.LayoutHold;
+            seed.LayoutId = step.LayoutId;
         }
 
         seed.ProfileId = step.ProfileId;
@@ -217,8 +218,8 @@ public sealed class ActionExtras : StackPanel
 
         if (_code == "app.layer")
         {
-            binding.Kind = _layerMode.SelectedIndex == 1 ? BindingKind.LayerToggle : BindingKind.LayerHold;
-            binding.LayerId = Chosen(_layerIds, _layer.SelectedIndex);
+            binding.Kind = _layoutMode.SelectedIndex == 1 ? BindingKind.LayoutToggle : BindingKind.LayoutHold;
+            binding.LayoutId = Chosen(_layoutIds, _layout.SelectedIndex);
             binding.Action = _code;
         }
 
@@ -242,8 +243,8 @@ public sealed class ActionExtras : StackPanel
         ApplyNumbers(out int x, out int y);
         step.ScrollX = x;
         step.ScrollY = y;
-        step.LayerId = Chosen(_layerIds, _layer.SelectedIndex);
-        step.LayerToggle = _layerMode.SelectedIndex == 1;
+        step.LayoutId = Chosen(_layoutIds, _layout.SelectedIndex);
+        step.LayoutToggle = _layoutMode.SelectedIndex == 1;
         step.ProfileId = Chosen(_profileIds, _profile.SelectedIndex);
         step.Path = _path.Text.Trim();
         if (ButtonCatalog.PadKind(_code) is { } kind)

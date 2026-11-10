@@ -10,7 +10,7 @@ public class ConfigWarningTests
         var document = new ProfileDocument { Profiles = [ProfilePresets.MouseHand()] };
         ProfileStore.Repair(document);
         var profile = document.Profiles[0];
-        var cross = profile.BaseLayer.Get(ControlId.Cross);
+        var cross = profile.BaseLayout.Get(ControlId.Cross);
         Assert.Null(ConfigWarnings.ForBinding(document, profile, cross));
         var quiet = ConfigWarnings.Collect(document, []);
         Assert.DoesNotContain(quiet, warning => warning.Message.Contains("never releases"));
@@ -20,7 +20,7 @@ public class ConfigWarningTests
         broken.Name = "Trigger shift";
         var pad = Binding.Pad(ControlId.Circle);
         pad.OutputId = "gone";
-        broken.BaseLayer.Set(ControlId.Cross, pad);
+        broken.BaseLayout.Set(ControlId.Cross, pad);
         document.Profiles.Add(broken);
         var warnings = ConfigWarnings.Collect(document, []);
         Assert.Contains(warnings, warning => warning.Message.Contains("Trigger shift") && warning.Message.Contains("removed"));
@@ -31,7 +31,7 @@ public class ConfigWarningTests
     {
         var profile = ProfilePresets.Blank();
         profile.Name = "Trigger shift";
-        profile.BaseLayer.Set(ControlId.Cross, new Binding
+        profile.BaseLayout.Set(ControlId.Cross, new Binding
         {
             Kind = BindingKind.None,
             Advanced = true,
@@ -40,7 +40,7 @@ public class ConfigWarningTests
         var document = new ProfileDocument { Profiles = [profile], ActiveId = profile.Id };
         var warnings = ConfigWarnings.Collect(document, []);
         Assert.Contains(warnings, warning => warning.Message.Contains("Cross") && warning.Message.Contains("Left Shift") && warning.Message.Contains("never releases"));
-        Assert.Contains("Presses Left Shift", ConfigWarnings.ForBinding(document, profile, profile.BaseLayer.Get(ControlId.Cross)));
+        Assert.Contains("Presses Left Shift", ConfigWarnings.ForBinding(document, profile, profile.BaseLayout.Get(ControlId.Cross)));
     }
 
     [Fact]
@@ -53,8 +53,8 @@ public class ConfigWarningTests
         var document = new ProfileDocument { ActiveId = hand.Id, Profiles = [hand, shift] };
         Assert.True(OutputCatalog.TryAdd(document.Outputs, OutputDeviceKind.Xbox));
         var xbox = document.Outputs[0];
-        hand.BaseLayer.Set(ControlId.Cross, PadOn(xbox.Id));
-        shift.BaseLayer.Set(ControlId.Cross, PadOn(xbox.Id));
+        hand.BaseLayout.Set(ControlId.Cross, PadOn(xbox.Id));
+        shift.BaseLayout.Set(ControlId.Cross, PadOn(xbox.Id));
         document.Assign("controller-a", hand.Id);
         document.Assign("controller-b", shift.Id);
         var warnings = ConfigWarnings.Collect(document, ["controller-a", "controller-b"]);

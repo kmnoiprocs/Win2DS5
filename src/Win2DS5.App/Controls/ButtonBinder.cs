@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.ApplicationModel.DataTransfer;
 using Win2DS5.Core;
+using Layout = Win2DS5.Core.Layout;
 
 namespace Win2DS5.App.Controls;
 
@@ -19,7 +20,7 @@ public sealed class ButtonBinder : UserControl
     private readonly ActionExtras _downExtras = new();
     private readonly ActionExtras _upExtras = new();
     private readonly List<OutputDevice> _outputs = [];
-    private List<Layer> _layers = [];
+    private List<Layout> _layouts = [];
     private List<Profile> _profiles = [];
     private bool _loading;
     private int _dragIndex = -1;
@@ -84,14 +85,14 @@ public sealed class ButtonBinder : UserControl
 
     public Func<Task<string?>>? BrowseFolder { get; set; }
 
-    public void Load(Binding? binding, IReadOnlyList<Layer> layers, IReadOnlyList<Profile> profiles, IReadOnlyList<OutputDevice> outputs)
+    public void Load(Binding? binding, IReadOnlyList<Layout> layouts, IReadOnlyList<Profile> profiles, IReadOnlyList<OutputDevice> outputs)
     {
         bool dirty = false;
         _loading = true;
         try
         {
             Remember(outputs);
-            _layers = layers.ToList();
+            _layouts = layouts.ToList();
             _profiles = profiles.ToList();
             _binding = binding ?? new Binding();
             _code = ButtonCatalog.Match(_binding) ?? "";
@@ -145,9 +146,9 @@ public sealed class ButtonBinder : UserControl
 
     private void ShareContext()
     {
-        _extras.SetContext(_layers, _profiles, _outputs);
-        _downExtras.SetContext(_layers, _profiles, _outputs);
-        _upExtras.SetContext(_layers, _profiles, _outputs);
+        _extras.SetContext(_layouts, _profiles, _outputs);
+        _downExtras.SetContext(_layouts, _profiles, _outputs);
+        _upExtras.SetContext(_layouts, _profiles, _outputs);
     }
 
     private void Hook(ActionExtras extras)
@@ -517,9 +518,9 @@ public sealed class ButtonBinder : UserControl
             return step.ScrollY.ToString();
         if (step.Code == "app.layer")
         {
-            string mode = step.LayerToggle ? "Toggle" : "Hold";
-            string layer = _layers.FirstOrDefault(item => item.Id == step.LayerId)?.Name ?? "";
-            return layer.Length == 0 ? mode : mode + " " + layer;
+            string mode = step.LayoutToggle ? "Toggle" : "Hold";
+            string layout = _layouts.FirstOrDefault(item => item.Id == step.LayoutId)?.Name ?? "";
+            return layout.Length == 0 ? mode : mode + " " + layout;
         }
 
         if (step.Code == "app.profile")

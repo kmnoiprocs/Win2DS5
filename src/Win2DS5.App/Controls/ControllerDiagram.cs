@@ -82,7 +82,7 @@ public sealed partial class ControllerDiagram : UserControl
     private Rect _touchArea;
     private ControlId _selected = ControlId.Cross;
     private int _mode = -1;
-    private Color? _layerLight;
+    private Color? _layoutLight;
     private string _shellColor = "";
     private string _shellImage = "";
     private DateTime _shellStamp;
@@ -194,7 +194,7 @@ public sealed partial class ControllerDiagram : UserControl
         if (hex == _light)
             return;
         _light = hex;
-        _layerLight = Theme.TryHex(hex, out var color) ? color : null;
+        _layoutLight = Theme.TryHex(hex, out var color) ? color : null;
         PaintLightbars();
     }
 
@@ -211,42 +211,42 @@ public sealed partial class ControllerDiagram : UserControl
         Canvas.SetTop(halo, 40);
         _canvas.Children.Add(halo);
 
-        var shadow = GlowLayer(BodyData, 34, () => Theme.IsDark ? Colors.Black : Color.FromArgb(255, 40, 52, 72), 6);
+        var shadow = GlowShape(BodyData, 34, () => Theme.IsDark ? Colors.Black : Color.FromArgb(255, 40, 52, 72), 6);
         shadow.Host.Opacity = 1;
         shadow.Glow.SetOpacity(Theme.IsDark ? 0.9f : 0.35f);
         Theme.Changed += () => shadow.Glow.SetOpacity(Theme.IsDark ? 0.9f : 0.35f);
         shadow.Shape.Fill = Theme.Brush("PadShellBrush");
 
-        var edge = GlowLayer(BodyData, 18, ModeColor);
+        var edge = GlowShape(BodyData, 18, ModeColor);
         _edgeGlow = edge.Host;
         Motion.Fade(_edgeGlow, 260);
         _modeGlows.Add(edge.Glow);
         edge.Shape.Fill = Theme.Brush("PadShellBrush");
 
-        var body = Layer(BodyData);
+        var body = Shape(BodyData);
         body.Shape.Fill = Theme.Brush("PadShellBrush");
         body.Shape.Stroke = Theme.Brush("PadEdgeBrush");
         body.Shape.StrokeThickness = 1.2;
         _body = body.Shape;
 
-        var shade = Layer(BodyData);
+        var shade = Shape(BodyData);
         shade.Shape.Fill = _shadeBrush;
         shade.Shape.Opacity = 0;
         shade.Shape.IsHitTestVisible = false;
         _shade = shade.Shape;
 
-        var rim = Layer(BodyData);
+        var rim = Shape(BodyData);
         rim.Shape.Stroke = Theme.Brush("AccentBrush");
         rim.Shape.StrokeThickness = 1.4;
         _edge = rim.Shape;
         Motion.Fade(rim.Root, 260);
 
-        var plate = Layer(PlateData);
+        var plate = Shape(PlateData);
         plate.Shape.Fill = Theme.Brush("PadPlateBrush");
 
         foreach (var cx in new[] { 284.0, 516.0 })
         {
-            var well = Layer(Circle(cx, 300, 47));
+            var well = Shape(Circle(cx, 300, 47));
             well.Shape.Fill = Theme.Brush("WellBrush");
             well.Shape.Stroke = Theme.Brush("PlateKeyLineBrush");
             well.Shape.StrokeThickness = 1;
@@ -254,13 +254,13 @@ public sealed partial class ControllerDiagram : UserControl
 
         var touchpad = AddPart(ControlId.TouchpadClick, TouchpadData, Key.Touch, null, null);
         touchpad.ActiveStrength = 0.32;
-        BuildTouchLayer(touchpad);
+        BuildTouchOverlay(touchpad);
 
         foreach (var data in new[] { LightbarData, Mirror(LightbarData) })
         {
-            var soft = GlowLayer(data, 24, LightColor);
+            var soft = GlowShape(data, 24, LightColor);
             soft.Glow.SetOpacity(1f);
-            var tight = GlowLayer(data, 8, LightColor);
+            var tight = GlowShape(data, 8, LightColor);
             foreach (var bar in new[] { soft, tight })
             {
                 bar.Shape.StrokeThickness = 5.5;
@@ -272,7 +272,7 @@ public sealed partial class ControllerDiagram : UserControl
                 _lightGlows.Add(bar.Glow);
             }
 
-            var core = Layer(data);
+            var core = Shape(data);
             core.Shape.Stroke = new SolidColorBrush(Color.FromArgb(170, 255, 255, 255));
             core.Shape.StrokeThickness = 1.4;
             core.Shape.StrokeStartLineCap = PenLineCap.Round;
@@ -280,22 +280,30 @@ public sealed partial class ControllerDiagram : UserControl
             _lightCores.Add(core.Shape);
         }
 
-        var bumper = Band(ShoulderEdge, 0.12, 1.42, 9, 7);
-        AddPart(ControlId.L1, bumper.Data, Key.Shell, bumper.Mid, "L1", 10);
-        AddPart(ControlId.R1, Mirror(bumper.Data), Key.Shell, Flip(bumper.Mid), "R1", 10);
+        var bumper = Band(ShoulderEdge, 0.1, 1.45, u =>
+        {
+            double half = 12 * Round(u, 4);
+            return (14 - half, 14 + half);
+        });
+        AddPart(ControlId.L1, bumper.Data, Key.Shell, bumper.Mid, "L1", 17);
+        AddPart(ControlId.R1, Mirror(bumper.Data), Key.Shell, Flip(bumper.Mid), "R1", 17);
 
-        var trigger = Band(ShoulderEdge, 0.28, 1.2, 31, 12);
-        var l2 = AddPart(ControlId.L2, trigger.Data, Key.Shell, trigger.Mid, "L2");
-        var r2 = AddPart(ControlId.R2, Mirror(trigger.Data), Key.Shell, Flip(trigger.Mid), "R2");
+        var trigger = Band(ShoulderEdge, 0.2, 1.26, u =>
+        {
+            double floor = 30 + (6 * (1 - Round(u, 4)));
+            return (floor, floor + (34 * Round(u, 2.6) * (0.84 + (0.24 * u))));
+        });
+        var l2 = AddPart(ControlId.L2, trigger.Data, Key.Shell, trigger.Mid, "L2", 18);
+        var r2 = AddPart(ControlId.R2, Mirror(trigger.Data), Key.Shell, Flip(trigger.Mid), "R2", 18);
         foreach (var part in new[] { l2, r2 })
         {
             part.ActiveStrength = 0.2;
             AddLevel(part);
         }
 
-        var full = new Point(trigger.End.X - 44, trigger.End.Y - 12);
-        AddPart(ControlId.L2Full, RoundRect(full.X - 24, full.Y - 10, 48, 20, 10), Key.Shell, full, "FULL", 9);
-        AddPart(ControlId.R2Full, RoundRect(CanvasWidth - full.X - 24, full.Y - 10, 48, 20, 10), Key.Shell, Flip(full), "FULL", 9);
+        var full = new Point(trigger.End.X - 50, trigger.End.Y - 8);
+        AddPart(ControlId.L2Full, RoundRect(full.X - 31, full.Y - 13, 62, 26, 13), Key.Shell, full, "FULL", 13);
+        AddPart(ControlId.R2Full, RoundRect(CanvasWidth - full.X - 31, full.Y - 13, 62, 26, 13), Key.Shell, Flip(full), "FULL", 13);
 
         var create = AddPart(ControlId.Create, RoundRect(227, 90, 14, 30, 7), Key.Shell, null, null, standout: true);
         AddDecor(create, "M 231,100 L 231,110 M 234,98 L 234,112 M 237,100 L 237,110", stroke: true, 1.3);
@@ -352,7 +360,7 @@ public sealed partial class ControllerDiagram : UserControl
         {
             if (i == 2)
             {
-                var led = GlowLayer(RoundRect(397, 231, 6, 4, 1.5), 8, ModeColor);
+                var led = GlowShape(RoundRect(397, 231, 6, 4, 1.5), 8, ModeColor);
                 _playerLed = led.Shape;
                 _playerLedGlow = led.Host;
                 Motion.Fade(_playerLedGlow, 260);
@@ -410,7 +418,7 @@ public sealed partial class ControllerDiagram : UserControl
         }
         var active = new Path { Data = Geo(local), Fill = Theme.Brush("AccentGradientBrush"), Opacity = 0, IsHitTestVisible = false };
         Motion.Fade(active, 110);
-        var ring = new Path { Data = Geo(local), Stroke = Theme.Brush("AccentBrush"), StrokeThickness = 2, Opacity = 0, IsHitTestVisible = false };
+        var ring = new Path { Data = Geo(local), Stroke = Theme.Brush("AccentBrush"), StrokeThickness = 3.2, Opacity = 0, IsHitTestVisible = false };
         Motion.Fade(ring, 180);
         var pulse = new Path
         {
@@ -428,7 +436,12 @@ public sealed partial class ControllerDiagram : UserControl
 
         var part = new PadPart(id, root, glowHost, active, ring, pulse, bounds, local,
             Theme.Brush(key == Key.Plate ? "PlateInkBrush" : "PadInkBrush"));
-        part.GlowHandle = new Glow(glowHost, basePath, key == Key.Touch ? 26 : 18);
+        var wideHost = new Grid { IsHitTestVisible = false };
+        var tightHost = new Grid { IsHitTestVisible = false };
+        glowHost.Children.Add(wideHost);
+        glowHost.Children.Add(tightHost);
+        _ = new Glow(wideHost, basePath, key == Key.Touch ? 40 : 30, 1f);
+        part.GlowHandle = new Glow(tightHost, basePath, key == Key.Touch ? 16 : 10, 1f);
 
         if (label != null && labelAt is { } at)
         {
@@ -445,10 +458,10 @@ public sealed partial class ControllerDiagram : UserControl
             var box = new Border
             {
                 Width = 60,
-                Height = 20,
+                Height = 28,
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(at.X - bounds.X - 30, at.Y - bounds.Y - 10, 0, 0),
+                Margin = new Thickness(at.X - bounds.X - 30, at.Y - bounds.Y - 14, 0, 0),
                 Child = text,
                 IsHitTestVisible = false,
             };
@@ -539,15 +552,15 @@ public sealed partial class ControllerDiagram : UserControl
         part.Level = level;
     }
 
-    private void BuildTouchLayer(PadPart touchpad)
+    private void BuildTouchOverlay(PadPart touchpad)
     {
         var b = touchpad.Bounds;
         _touchArea = new Rect(278 - b.X, 82 - b.Y, 244, 126);
-        var layer = new Canvas { IsHitTestVisible = false };
+        var overlay = new Canvas { IsHitTestVisible = false };
         int index = touchpad.Root.Children.IndexOf(touchpad.Active) + 1;
-        touchpad.Root.Children.Insert(index, layer);
-        _touch0 = new TouchDot(layer);
-        _touch1 = new TouchDot(layer);
+        touchpad.Root.Children.Insert(index, overlay);
+        _touch0 = new TouchDot(overlay);
+        _touch1 = new TouchDot(overlay);
     }
 
     private static void SetLevel(PadPart part, double level)
@@ -618,7 +631,7 @@ public sealed partial class ControllerDiagram : UserControl
             glow.Refresh();
     }
 
-    private Color LightColor() => _mode == 1 ? ModeColor() : _layerLight ?? Theme.Accent;
+    private Color LightColor() => _mode == 1 ? ModeColor() : _layoutLight ?? Theme.Accent;
 
     private Color ModeColor() => _mode == 1 ? ((SolidColorBrush)Theme.Brush("AmberBrush")).Color : Theme.Accent;
 
@@ -636,7 +649,7 @@ public sealed partial class ControllerDiagram : UserControl
             _body.Fill = Theme.Brush("PadShellBrush");
     }
 
-    private (Grid Root, Path Shape) Layer(string data)
+    private (Grid Root, Path Shape) Shape(string data)
     {
         var b = Inflate(Bounds(data), 4);
         var root = new Grid { Width = b.Width, Height = b.Height, IsHitTestVisible = false };
@@ -648,9 +661,9 @@ public sealed partial class ControllerDiagram : UserControl
         return (root, path);
     }
 
-    private (Grid Root, Grid Host, Path Shape, Glow Glow) GlowLayer(string data, float blur, Func<Color> color, float offsetY = 0)
+    private (Grid Root, Grid Host, Path Shape, Glow Glow) GlowShape(string data, float blur, Func<Color> color, float offsetY = 0)
     {
-        var (root, path) = Layer(data);
+        var (root, path) = Shape(data);
         var host = new Grid { IsHitTestVisible = false };
         root.Children.Insert(0, host);
         var glow = new Glow(host, path, blur, 0.95f, color, offsetY);
@@ -702,7 +715,10 @@ public sealed partial class ControllerDiagram : UserControl
         return builder.Append(" Z").ToString();
     }
 
-    private static (string Data, Point Mid, Point End) Band((Point P0, Point C1, Point C2, Point P3)[] curve, double from, double to, double offset, double half)
+    private static double Round(double u, double power) => Math.Pow(1 - Math.Pow(Math.Abs((2 * u) - 1), power), 1 / power);
+
+    private static (string Data, Point Mid, Point End) Band(
+        (Point P0, Point C1, Point C2, Point P3)[] curve, double from, double to, Func<double, (double Inner, double Outer)> profile)
     {
         const int samples = 64;
         var outer = new List<Point>(samples + 1);
@@ -724,10 +740,11 @@ public sealed partial class ControllerDiagram : UserControl
             double length = Math.Sqrt((dx * dx) + (dy * dy));
             double nx = -dy / length;
             double ny = dx / length;
-            double width = half * Math.Pow(1 - Math.Pow(Math.Abs((2 * u) - 1), 4), 0.25);
-            outer.Add(new Point(p.X + (nx * (offset + width)), p.Y + (ny * (offset + width))));
-            inner.Add(new Point(p.X + (nx * (offset - width)), p.Y + (ny * (offset - width))));
-            var center = new Point(p.X + (nx * offset), p.Y + (ny * offset));
+            var (near, far) = profile(u);
+            outer.Add(new Point(p.X + (nx * far), p.Y + (ny * far)));
+            inner.Add(new Point(p.X + (nx * near), p.Y + (ny * near)));
+            double middle = (near + far) / 2;
+            var center = new Point(p.X + (nx * middle), p.Y + (ny * middle));
             if (i == samples / 2)
                 mid = center;
             if (i == samples)
@@ -858,13 +875,14 @@ public sealed partial class ControllerDiagram : UserControl
             var target = new Vector3(scale, scale, 1);
             if (Root.Scale != target)
                 Root.Scale = target;
-            double glow = down ? 1 : Math.Max(Selected ? 0.55 : Hover ? 0.32 : 0, Live);
+            double glow = down || Selected ? 1 : Math.Max(Hover ? 0.8 : 0, Live);
             if (Math.Abs(GlowHost.Opacity - glow) > 0.005)
                 GlowHost.Opacity = glow;
-            double active = down ? ActiveStrength : 0;
+            double tint = Selected ? 0.3 : Hover ? 0.16 : 0;
+            double active = down ? ActiveStrength : Math.Min(tint, ActiveStrength);
             if (Active.Opacity != active)
                 Active.Opacity = active;
-            double ring = Selected ? 1 : 0;
+            double ring = Selected ? 1 : Hover ? 0.6 : 0;
             if (Ring.Opacity != ring)
                 Ring.Opacity = ring;
             bool inkDown = down && ActiveStrength > 0.5;
@@ -910,7 +928,7 @@ public sealed partial class ControllerDiagram : UserControl
         private readonly Grid _root;
         private bool _active;
 
-        public TouchDot(Canvas layer)
+        public TouchDot(Canvas surface)
         {
             _root = new Grid { Width = 18, Height = 18, Opacity = 0 };
             Motion.Fade(_root, 120);
@@ -921,7 +939,7 @@ public sealed partial class ControllerDiagram : UserControl
             _root.Children.Add(dot);
             _root.Children.Add(core);
             _ = new Glow(host, dot, 14);
-            layer.Children.Add(_root);
+            surface.Children.Add(_root);
         }
 
         public void Set(bool active, double x, double y, Rect area)

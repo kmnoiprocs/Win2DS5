@@ -196,7 +196,7 @@ public sealed partial class TouchpadPage : UserControl
         var zone = (TouchZone)ZoneBox.SelectedIndex;
         var kind = (GestureKind)GestureBox.SelectedIndex;
         var binding = _runtime.Editing.Touchpad.GetGesture(zone, kind);
-        GestureEditor.Show($"{zone} {kind}", "A drag never fires a zone. Tap and long-press do.", binding, _runtime.Editing.Layers, false, false, false, _runtime.Document.Outputs);
+        GestureEditor.Show($"{zone} {kind}", "A drag never fires a zone. Tap and long-press do.", binding, _runtime.Editing.Layouts, false, false, false, _runtime.Document.Outputs);
     }
 
     private void UpdateLabels()

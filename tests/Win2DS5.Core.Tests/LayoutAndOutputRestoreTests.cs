@@ -2,7 +2,7 @@ using Win2DS5.Core;
 
 namespace Win2DS5.Core.Tests;
 
-public class LayerAndOutputRestoreTests
+public class LayoutAndOutputRestoreTests
 {
     [Fact]
     public void Restore_AddsARememberedPadAndPointsTheBindingAtIt()
@@ -13,14 +13,14 @@ public class LayerAndOutputRestoreTests
         binding.OutputKnown = true;
         binding.OutputKind = OutputDeviceKind.DualShock4;
         binding.OutputSlot = 2;
-        profile.BaseLayer.Set(ControlId.Cross, binding);
+        profile.BaseLayout.Set(ControlId.Cross, binding);
         var document = new ProfileDocument { Profiles = [profile] };
         ProfileStore.Repair(document);
         var missing = OutputRestore.Find(profile, document.Outputs);
         Assert.Contains(missing, item => item.OldId == "old-ds4" && item.Kind == OutputDeviceKind.DualShock4 && item.Slot == 2);
         Assert.Empty(OutputRestore.Restore(document, profile, missing));
         var created = Assert.Single(document.Outputs, output => output.Kind == OutputDeviceKind.DualShock4);
-        Assert.Equal(created.Id, profile.BaseLayer.Get(ControlId.Cross)!.OutputId);
+        Assert.Equal(created.Id, profile.BaseLayout.Get(ControlId.Cross)!.OutputId);
     }
 
     [Fact]
@@ -34,17 +34,17 @@ public class LayerAndOutputRestoreTests
         var xbox = document.Profiles[1];
         Assert.Equal(StickMode.Gamepad, ds4.LeftStick.Mode);
         Assert.Equal(OutputDeviceKind.DualShock4, ds4.LeftStick.OutputKind);
-        Assert.Equal(BindingKind.Pad, ds4.BaseLayer.Get(ControlId.Cross)!.Kind);
-        Assert.Equal(ControlId.Cross, ds4.BaseLayer.Get(ControlId.Cross)!.PadButton);
-        Assert.Equal(OutputDeviceKind.Xbox, xbox.BaseLayer.Get(ControlId.Circle)!.OutputKind);
-        Assert.Single(ds4.Layers, layer => layer.Name != "Profile Select");
-        Assert.Single(xbox.Layers, layer => layer.Name != "Profile Select");
+        Assert.Equal(BindingKind.Pad, ds4.BaseLayout.Get(ControlId.Cross)!.Kind);
+        Assert.Equal(ControlId.Cross, ds4.BaseLayout.Get(ControlId.Cross)!.PadButton);
+        Assert.Equal(OutputDeviceKind.Xbox, xbox.BaseLayout.Get(ControlId.Circle)!.OutputKind);
+        Assert.Single(ds4.Layouts, layout => layout.Name != "Profile Select");
+        Assert.Single(xbox.Layouts, layout => layout.Name != "Profile Select");
 
         foreach (var profile in document.Profiles)
         {
-            Assert.Equal(BindingKind.LayerHold, profile.BaseLayer.Get(ControlId.Mute)!.Kind);
-            Assert.Equal(ProfilePresets.ProfileSelectId, profile.BaseLayer.Get(ControlId.Mute)!.LayerId);
-            Assert.Same(document.Profiles[0].GetLayer(ProfilePresets.ProfileSelectId), profile.GetLayer(ProfilePresets.ProfileSelectId));
+            Assert.Equal(BindingKind.LayoutHold, profile.BaseLayout.Get(ControlId.Mute)!.Kind);
+            Assert.Equal(ProfilePresets.ProfileSelectId, profile.BaseLayout.Get(ControlId.Mute)!.LayoutId);
+            Assert.Same(document.Profiles[0].GetLayout(ProfilePresets.ProfileSelectId), profile.GetLayout(ProfilePresets.ProfileSelectId));
         }
 
         var touch = document.Profiles[2];
@@ -53,17 +53,17 @@ public class LayerAndOutputRestoreTests
         Assert.Equal(StickMode.Off, touch.LeftStick.Mode);
         Assert.Equal(StickMode.Mouse, sticks.LeftStick.Mode);
         Assert.Equal(TouchpadMode.Off, sticks.Touchpad.Mode);
-        Assert.Equal("DS4", ds4.BaseLayer.Name);
-        Assert.Equal("base-ds4", ds4.BaseLayerId);
-        Assert.Equal("XBOX", xbox.BaseLayer.Name);
-        Assert.Equal("Touchpad", touch.BaseLayer.Name);
-        Assert.Equal("Sticks", sticks.BaseLayer.Name);
-        Assert.Contains(touch.Layers, layer => layer.Name == "Touchpad shift");
-        Assert.Contains(sticks.Layers, layer => layer.Name == "Sticks precision");
-        Assert.Equal(BindingKind.LayerHold, touch.BaseLayer.Get(ControlId.R1)!.Kind);
-        Assert.Equal(BindingKind.LayerHold, sticks.BaseLayer.Get(ControlId.L1)!.Kind);
+        Assert.Equal("DS4", ds4.BaseLayout.Name);
+        Assert.Equal("base-ds4", ds4.BaseLayoutId);
+        Assert.Equal("XBOX", xbox.BaseLayout.Name);
+        Assert.Equal("Touchpad", touch.BaseLayout.Name);
+        Assert.Equal("Sticks", sticks.BaseLayout.Name);
+        Assert.Contains(touch.Layouts, layout => layout.Name == "Touchpad shift");
+        Assert.Contains(sticks.Layouts, layout => layout.Name == "Sticks precision");
+        Assert.Equal(BindingKind.LayoutHold, touch.BaseLayout.Get(ControlId.R1)!.Kind);
+        Assert.Equal(BindingKind.LayoutHold, sticks.BaseLayout.Get(ControlId.L1)!.Kind);
 
-        var picker = touch.GetLayer(ProfilePresets.ProfileSelectId)!;
+        var picker = touch.GetLayout(ProfilePresets.ProfileSelectId)!;
         Assert.Equal(ProfilePresets.Ds4Id, picker.Get(ControlId.Cross)!.ProfileId);
         Assert.Equal(ProfilePresets.XboxId, picker.Get(ControlId.Circle)!.ProfileId);
         Assert.Equal(ProfilePresets.TouchpadId, picker.Get(ControlId.Square)!.ProfileId);
@@ -73,23 +73,23 @@ public class LayerAndOutputRestoreTests
     }
 
     [Fact]
-    public void Layers_StaySeparateUntilTheSameLayerIsApplied()
+    public void Layouts_StaySeparateUntilTheSameLayoutIsApplied()
     {
         var first = ProfilePresets.MouseHand();
         var second = ProfilePresets.TriggerShift();
         var document = new ProfileDocument { Profiles = [first, second] };
         ProfileStore.Repair(document);
-        Assert.NotSame(first.BaseLayer, second.BaseLayer);
-        Assert.Equal(BindingKind.Mouse, first.BaseLayer.Get(ControlId.Cross)!.Kind);
-        Assert.Equal(BindingKind.Key, second.BaseLayer.Get(ControlId.Cross)!.Kind);
+        Assert.NotSame(first.BaseLayout, second.BaseLayout);
+        Assert.Equal(BindingKind.Mouse, first.BaseLayout.Get(ControlId.Cross)!.Kind);
+        Assert.Equal(BindingKind.Key, second.BaseLayout.Get(ControlId.Cross)!.Kind);
 
-        var aim = new Layer { Id = "aim", Name = "Aim" };
+        var aim = new Layout { Id = "aim", Name = "Aim" };
         aim.Set(ControlId.Cross, Binding.MouseClick(MouseButton.Right));
-        document.LayerLibrary.Add(aim);
-        first.Layers.Add(aim);
-        second.Layers.Add(aim);
+        document.LayoutLibrary.Add(aim);
+        first.Layouts.Add(aim);
+        second.Layouts.Add(aim);
         aim.Set(ControlId.Circle, Binding.MouseClick(MouseButton.Left));
-        Assert.Same(first.Layers.Last(), second.Layers.Last());
-        Assert.Equal(BindingKind.Mouse, second.GetLayer("aim")!.Get(ControlId.Circle)!.Kind);
+        Assert.Same(first.Layouts.Last(), second.Layouts.Last());
+        Assert.Equal(BindingKind.Mouse, second.GetLayout("aim")!.Get(ControlId.Circle)!.Kind);
     }
 }

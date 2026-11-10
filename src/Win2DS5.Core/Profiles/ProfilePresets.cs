@@ -7,28 +7,28 @@ public static class ProfilePresets
     public static Profile MouseHand()
     {
         var profile = Skeleton("Mouse hand");
-        var shift = profile.GetLayer("shift")!;
-        var precision = profile.GetLayer("precision")!;
-        var layer = profile.BaseLayer;
+        var shift = profile.GetLayout("shift")!;
+        var precision = profile.GetLayout("precision")!;
+        var layout = profile.BaseLayout;
 
-        layer.Set(ControlId.R2, Binding.MouseClick(MouseButton.Left));
-        layer.Set(ControlId.L2, Binding.MouseClick(MouseButton.Right));
-        layer.Set(ControlId.R1, Binding.Hold("shift"));
-        layer.Set(ControlId.L1, Binding.Hold("precision"));
-        layer.Set(ControlId.Cross, Binding.MouseClick(MouseButton.Left));
-        layer.Set(ControlId.Circle, Binding.MouseClick(MouseButton.Right));
-        layer.Set(ControlId.Square, Binding.Key(KeyCatalog.Enter));
-        layer.Set(ControlId.Triangle, Binding.Key(KeyCatalog.Esc));
-        layer.Set(ControlId.DPadUp, Binding.Key(KeyCatalog.Up));
-        layer.Set(ControlId.DPadDown, Binding.Key(KeyCatalog.Down));
-        layer.Set(ControlId.DPadLeft, Binding.Key(KeyCatalog.Left));
-        layer.Set(ControlId.DPadRight, Binding.Key(KeyCatalog.Right));
-        layer.Set(ControlId.Create, Binding.Keyboard());
-        layer.Set(ControlId.Options, Binding.Key(KeyCatalog.Tab));
-        layer.Set(ControlId.Ps, Binding.Key(KeyCatalog.LWin));
-        layer.Set(ControlId.L3, Binding.MouseClick(MouseButton.Middle));
-        layer.Set(ControlId.TouchpadClick, Binding.MouseClick(MouseButton.Left));
-        layer.Set(ControlId.R2Full, Binding.Key(KeyCatalog.Delete));
+        layout.Set(ControlId.R2, Binding.MouseClick(MouseButton.Left));
+        layout.Set(ControlId.L2, Binding.MouseClick(MouseButton.Right));
+        layout.Set(ControlId.R1, Binding.Hold("shift"));
+        layout.Set(ControlId.L1, Binding.Hold("precision"));
+        layout.Set(ControlId.Cross, Binding.MouseClick(MouseButton.Left));
+        layout.Set(ControlId.Circle, Binding.MouseClick(MouseButton.Right));
+        layout.Set(ControlId.Square, Binding.Key(KeyCatalog.Enter));
+        layout.Set(ControlId.Triangle, Binding.Key(KeyCatalog.Esc));
+        layout.Set(ControlId.DPadUp, Binding.Key(KeyCatalog.Up));
+        layout.Set(ControlId.DPadDown, Binding.Key(KeyCatalog.Down));
+        layout.Set(ControlId.DPadLeft, Binding.Key(KeyCatalog.Left));
+        layout.Set(ControlId.DPadRight, Binding.Key(KeyCatalog.Right));
+        layout.Set(ControlId.Create, Binding.Keyboard());
+        layout.Set(ControlId.Options, Binding.Key(KeyCatalog.Tab));
+        layout.Set(ControlId.Ps, Binding.Key(KeyCatalog.LWin));
+        layout.Set(ControlId.L3, Binding.MouseClick(MouseButton.Middle));
+        layout.Set(ControlId.TouchpadClick, Binding.MouseClick(MouseButton.Left));
+        layout.Set(ControlId.R2Full, Binding.Key(KeyCatalog.Delete));
 
         shift.Set(ControlId.Cross, Chord(KeyCatalog.LCtrl, KeyCatalog.Letter('C')));
         shift.Set(ControlId.Circle, Chord(KeyCatalog.LCtrl, KeyCatalog.Letter('V')));
@@ -50,25 +50,25 @@ public static class ProfilePresets
     public static Profile TriggerShift()
     {
         var profile = Skeleton("Trigger shift");
-        var shift = profile.GetLayer("shift")!;
-        var layer = profile.BaseLayer;
+        var shift = profile.GetLayout("shift")!;
+        var layout = profile.BaseLayout;
 
-        layer.Set(ControlId.R2, Binding.Hold("shift", Binding.MouseClick(MouseButton.Left), 200));
-        layer.Set(ControlId.L2, Binding.MouseClick(MouseButton.Right));
-        layer.Set(ControlId.L1, Binding.Hold("precision"));
-        layer.Set(ControlId.R1, Binding.MouseClick(MouseButton.Middle));
-        layer.Set(ControlId.Cross, Binding.Key(KeyCatalog.Enter));
-        layer.Set(ControlId.Circle, Binding.Key(KeyCatalog.Backspace));
-        layer.Set(ControlId.Square, Binding.Key(KeyCatalog.Space));
-        layer.Set(ControlId.Triangle, Binding.Key(KeyCatalog.Esc));
-        layer.Set(ControlId.DPadUp, Binding.Key(KeyCatalog.Up));
-        layer.Set(ControlId.DPadDown, Binding.Key(KeyCatalog.Down));
-        layer.Set(ControlId.DPadLeft, Binding.Key(KeyCatalog.Left));
-        layer.Set(ControlId.DPadRight, Binding.Key(KeyCatalog.Right));
-        layer.Set(ControlId.Create, Binding.Keyboard());
-        layer.Set(ControlId.Options, Binding.Key(KeyCatalog.Tab));
-        layer.Set(ControlId.Ps, Binding.Key(KeyCatalog.LWin));
-        layer.Set(ControlId.TouchpadClick, Binding.MouseClick(MouseButton.Left));
+        layout.Set(ControlId.R2, Binding.Hold("shift", Binding.MouseClick(MouseButton.Left), 200));
+        layout.Set(ControlId.L2, Binding.MouseClick(MouseButton.Right));
+        layout.Set(ControlId.L1, Binding.Hold("precision"));
+        layout.Set(ControlId.R1, Binding.MouseClick(MouseButton.Middle));
+        layout.Set(ControlId.Cross, Binding.Key(KeyCatalog.Enter));
+        layout.Set(ControlId.Circle, Binding.Key(KeyCatalog.Backspace));
+        layout.Set(ControlId.Square, Binding.Key(KeyCatalog.Space));
+        layout.Set(ControlId.Triangle, Binding.Key(KeyCatalog.Esc));
+        layout.Set(ControlId.DPadUp, Binding.Key(KeyCatalog.Up));
+        layout.Set(ControlId.DPadDown, Binding.Key(KeyCatalog.Down));
+        layout.Set(ControlId.DPadLeft, Binding.Key(KeyCatalog.Left));
+        layout.Set(ControlId.DPadRight, Binding.Key(KeyCatalog.Right));
+        layout.Set(ControlId.Create, Binding.Keyboard());
+        layout.Set(ControlId.Options, Binding.Key(KeyCatalog.Tab));
+        layout.Set(ControlId.Ps, Binding.Key(KeyCatalog.LWin));
+        layout.Set(ControlId.TouchpadClick, Binding.MouseClick(MouseButton.Left));
 
         shift.Set(ControlId.Cross, Chord(KeyCatalog.LCtrl, KeyCatalog.Letter('C')));
         shift.Set(ControlId.Circle, Chord(KeyCatalog.LCtrl, KeyCatalog.Letter('V')));
@@ -79,8 +79,8 @@ public static class ProfilePresets
         shift.Set(ControlId.L2, Binding.Base());
         shift.Set(ControlId.Options, Binding.Key(KeyCatalog.Delete));
 
-        profile.GetLayer("precision")!.PointerScale = 0.35;
-        profile.GetLayer("precision")!.AffectsBindings = false;
+        profile.GetLayout("precision")!.PointerScale = 0.35;
+        profile.GetLayout("precision")!.AffectsBindings = false;
         return profile;
     }
 
@@ -149,27 +149,27 @@ public static class ProfilePresets
         return profile;
     }
 
-    public static Layer ProfileSelect()
+    public static Layout ProfileSelect()
     {
-        var layer = new Layer { Id = ProfileSelectId, Name = "Profile Select" };
-        layer.Set(ControlId.Cross, Binding.SwitchProfile(Ds4Id));
-        layer.Set(ControlId.Circle, Binding.SwitchProfile(XboxId));
-        layer.Set(ControlId.Square, Binding.SwitchProfile(TouchpadId));
-        layer.Set(ControlId.Triangle, Binding.SwitchProfile(SticksId));
-        return layer;
+        var layout = new Layout { Id = ProfileSelectId, Name = "Profile Select" };
+        layout.Set(ControlId.Cross, Binding.SwitchProfile(Ds4Id));
+        layout.Set(ControlId.Circle, Binding.SwitchProfile(XboxId));
+        layout.Set(ControlId.Square, Binding.SwitchProfile(TouchpadId));
+        layout.Set(ControlId.Triangle, Binding.SwitchProfile(SticksId));
+        return layout;
     }
 
-    private static void Share(Layer select, params Profile[] profiles)
+    private static void Share(Layout select, params Profile[] profiles)
     {
         foreach (var profile in profiles)
         {
-            int index = profile.Layers.FindIndex(layer => layer.Id == ProfileSelectId);
+            int index = profile.Layouts.FindIndex(layout => layout.Id == ProfileSelectId);
             if (index >= 0)
-                profile.Layers[index] = select;
+                profile.Layouts[index] = select;
         }
     }
 
-    private static Profile Gamepad(string name, string layerId, OutputDeviceKind kind)
+    private static Profile Gamepad(string name, string layoutId, OutputDeviceKind kind)
     {
         var profile = new Profile
         {
@@ -179,14 +179,14 @@ public static class ProfilePresets
             Touchpad = new TouchpadSettings { Mode = TouchpadMode.Off },
             Gyro = new GyroSettings(),
             ToggleChord = [],
-            BaseLayerId = layerId,
-            Layers =
+            BaseLayoutId = layoutId,
+            Layouts =
             [
-                new Layer { Id = layerId, Name = name },
+                new Layout { Id = layoutId, Name = name },
                 ProfileSelect(),
             ],
         };
-        var layer = profile.Layers[0];
+        var layout = profile.Layouts[0];
         foreach (var id in ControlNames.Bindable)
         {
             if (id == ControlId.Mute)
@@ -197,10 +197,10 @@ public static class ProfilePresets
                 ControlId.R2Full => ControlId.R2,
                 _ => id,
             };
-            layer.Set(id, Aimed(Binding.Pad(target), kind, 1));
+            layout.Set(id, Aimed(Binding.Pad(target), kind, 1));
         }
 
-        layer.Set(ControlId.Mute, Binding.Hold(ProfileSelectId));
+        layout.Set(ControlId.Mute, Binding.Hold(ProfileSelectId));
         return profile;
     }
 
@@ -211,35 +211,35 @@ public static class ProfilePresets
             Name = name,
             Gyro = new GyroSettings(),
             ToggleChord = [],
-            BaseLayerId = baseId,
-            Layers =
+            BaseLayoutId = baseId,
+            Layouts =
             [
-                new Layer { Id = baseId, Name = name },
-                new Layer { Id = shiftId, Name = name + " shift" },
-                new Layer { Id = precisionId, Name = name + " precision", AffectsBindings = false, PointerScale = 0.35 },
+                new Layout { Id = baseId, Name = name },
+                new Layout { Id = shiftId, Name = name + " shift" },
+                new Layout { Id = precisionId, Name = name + " precision", AffectsBindings = false, PointerScale = 0.35 },
                 ProfileSelect(),
             ],
         };
-        var layer = profile.Layers[0];
-        var shift = profile.GetLayer(shiftId)!;
-        layer.Set(ControlId.R2, Binding.MouseClick(MouseButton.Left));
-        layer.Set(ControlId.L2, Binding.MouseClick(MouseButton.Right));
-        layer.Set(ControlId.R1, Binding.Hold(shiftId));
-        layer.Set(ControlId.L1, Binding.Hold(precisionId));
-        layer.Set(ControlId.Cross, Binding.Key(KeyCatalog.Enter));
-        layer.Set(ControlId.Circle, Binding.Key(KeyCatalog.Backspace));
-        layer.Set(ControlId.Square, Binding.Key(KeyCatalog.Space));
-        layer.Set(ControlId.Triangle, Binding.Key(KeyCatalog.Esc));
-        layer.Set(ControlId.DPadUp, Binding.Key(KeyCatalog.Up));
-        layer.Set(ControlId.DPadDown, Binding.Key(KeyCatalog.Down));
-        layer.Set(ControlId.DPadLeft, Binding.Key(KeyCatalog.Left));
-        layer.Set(ControlId.DPadRight, Binding.Key(KeyCatalog.Right));
-        layer.Set(ControlId.Create, Binding.Keyboard());
-        layer.Set(ControlId.Options, Binding.Key(KeyCatalog.Tab));
-        layer.Set(ControlId.Ps, Binding.Key(KeyCatalog.LWin));
-        layer.Set(ControlId.L3, Binding.MouseClick(MouseButton.Middle));
-        layer.Set(ControlId.TouchpadClick, Binding.MouseClick(MouseButton.Left));
-        layer.Set(ControlId.Mute, Binding.Hold(ProfileSelectId));
+        var layout = profile.Layouts[0];
+        var shift = profile.GetLayout(shiftId)!;
+        layout.Set(ControlId.R2, Binding.MouseClick(MouseButton.Left));
+        layout.Set(ControlId.L2, Binding.MouseClick(MouseButton.Right));
+        layout.Set(ControlId.R1, Binding.Hold(shiftId));
+        layout.Set(ControlId.L1, Binding.Hold(precisionId));
+        layout.Set(ControlId.Cross, Binding.Key(KeyCatalog.Enter));
+        layout.Set(ControlId.Circle, Binding.Key(KeyCatalog.Backspace));
+        layout.Set(ControlId.Square, Binding.Key(KeyCatalog.Space));
+        layout.Set(ControlId.Triangle, Binding.Key(KeyCatalog.Esc));
+        layout.Set(ControlId.DPadUp, Binding.Key(KeyCatalog.Up));
+        layout.Set(ControlId.DPadDown, Binding.Key(KeyCatalog.Down));
+        layout.Set(ControlId.DPadLeft, Binding.Key(KeyCatalog.Left));
+        layout.Set(ControlId.DPadRight, Binding.Key(KeyCatalog.Right));
+        layout.Set(ControlId.Create, Binding.Keyboard());
+        layout.Set(ControlId.Options, Binding.Key(KeyCatalog.Tab));
+        layout.Set(ControlId.Ps, Binding.Key(KeyCatalog.LWin));
+        layout.Set(ControlId.L3, Binding.MouseClick(MouseButton.Middle));
+        layout.Set(ControlId.TouchpadClick, Binding.MouseClick(MouseButton.Left));
+        layout.Set(ControlId.Mute, Binding.Hold(ProfileSelectId));
 
         shift.Set(ControlId.Cross, Chord(KeyCatalog.LCtrl, KeyCatalog.Letter('C')));
         shift.Set(ControlId.Circle, Chord(KeyCatalog.LCtrl, KeyCatalog.Letter('V')));
@@ -295,12 +295,12 @@ public static class ProfilePresets
             },
             Touchpad = DefaultTouchpad(),
             Gyro = new GyroSettings(),
-            BaseLayerId = "base",
-            Layers =
+            BaseLayoutId = "base",
+            Layouts =
             [
-                new Layer { Id = "base", Name = "Base" },
-                new Layer { Id = "shift", Name = "Shift" },
-                new Layer { Id = "precision", Name = "Precision", AffectsBindings = false, PointerScale = 0.35 },
+                new Layout { Id = "base", Name = "Base" },
+                new Layout { Id = "shift", Name = "Shift" },
+                new Layout { Id = "precision", Name = "Precision", AffectsBindings = false, PointerScale = 0.35 },
             ],
         };
         return profile;

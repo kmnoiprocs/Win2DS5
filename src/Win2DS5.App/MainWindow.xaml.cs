@@ -204,7 +204,7 @@ public sealed partial class MainWindow : Window
         var link = snapshot.Connected
             ? (snapshot.Bluetooth ? "Bluetooth" : "USB") + (snapshot.Edge ? "  ·  DualSense Edge" : "")
             : "No controller";
-        var status = $"{link}  ·  {snapshot.LayerName} layer  ·  {(snapshot.DesktopEnabled ? "Desktop control" : "Passed to the game")}";
+        var status = $"{link}  ·  {snapshot.LayoutName} layout  ·  {(snapshot.DesktopEnabled ? "Desktop control" : "Passed to the game")}";
         if (StatusText.Text != status)
             StatusText.Text = status;
         ConsiderMissingOutputs();

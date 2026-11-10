@@ -29,7 +29,7 @@
                         <StackPanel Spacing="14">
                             <TextBlock Text="Details" Style="{StaticResource SectionText}" />
                             <TextBox x:Name="NameBox" Header="Name" CornerRadius="9" />
-                            <controls:QuietComboBox x:Name="BaseLayerBox" Header="Base layer" CornerRadius="9" HorizontalAlignment="Stretch" />
+                            <controls:QuietComboBox x:Name="BaseLayoutBox" Header="Base layout" CornerRadius="9" HorizontalAlignment="Stretch" />
                             <TextBox x:Name="ProcessBox" Header="Process names for later automatic switching" PlaceholderText="notepad.exe, chrome.exe" CornerRadius="9" />
                             <TextBlock x:Name="UsingLabel" Style="{StaticResource CaptionText}" TextWrapping="Wrap" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -63,10 +63,10 @@
             </Grid>
             <Border Style="{StaticResource CardStyle}" Padding="10">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="SAVED LAYERS" Margin="8,6,0,4" Style="{StaticResource EyebrowText}" Foreground="{StaticResource MutedBrush}" />
+                    <TextBlock Text="SAVED LAYOUTS" Margin="8,6,0,4" Style="{StaticResource EyebrowText}" Foreground="{StaticResource MutedBrush}" />
                     <TextBlock Style="{StaticResource CaptionText}" Margin="8,0,8,4" TextWrapping="Wrap"
-                               Text="A profile's base layer is one of these saved layers. Editing a shared layer updates every profile that uses it." />
-                    <ListView x:Name="LayerList" SelectionMode="None" MinHeight="140" />
+                               Text="A profile's base layout is one of these saved layouts. Editing a shared layout updates every profile that uses it." />
+                    <ListView x:Name="LayoutList" SelectionMode="None" MinHeight="140" />
                 </StackPanel>
             </Border>
         </StackPanel>

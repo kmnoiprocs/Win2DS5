@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Win2DS5.Core;
 
 public enum BindingKind
@@ -6,8 +8,10 @@ public enum BindingKind
     Key,
     Mouse,
     Scroll,
-    LayerHold,
-    LayerToggle,
+    [JsonStringEnumMemberName("LayerHold")]
+    LayoutHold,
+    [JsonStringEnumMemberName("LayerToggle")]
+    LayoutToggle,
     ToggleKeyboard,
     UseBase,
     Pad,
@@ -71,11 +75,13 @@ public sealed class MacroStep
     public bool Both { get; set; }
     public int ScrollX { get; set; }
     public int ScrollY { get; set; }
-    public string LayerId { get; set; } = "";
+    [JsonPropertyName("layerId")]
+    public string LayoutId { get; set; } = "";
     public string ProfileId { get; set; } = "";
     public string Path { get; set; } = "";
     public List<string> Targets { get; set; } = [];
-    public bool LayerToggle { get; set; }
+    [JsonPropertyName("layerToggle")]
+    public bool LayoutToggle { get; set; }
 }
 
 public sealed class Binding
@@ -85,7 +91,8 @@ public sealed class Binding
     public MouseButton Mouse { get; set; }
     public int ScrollX { get; set; }
     public int ScrollY { get; set; }
-    public string? LayerId { get; set; }
+    [JsonPropertyName("layerId")]
+    public string? LayoutId { get; set; }
     public string ProfileId { get; set; } = "";
     public ControlId PadButton { get; set; }
     public Binding? Tap { get; set; }
@@ -107,9 +114,9 @@ public sealed class Binding
     public static Binding Key(params KeyStroke[] keys) => new() { Kind = BindingKind.Key, Keys = keys.ToList() };
     public static Binding MouseClick(MouseButton button) => new() { Kind = BindingKind.Mouse, Mouse = button };
     public static Binding Scroll(int x, int y) => new() { Kind = BindingKind.Scroll, ScrollX = x, ScrollY = y };
-    public static Binding Hold(string layerId, Binding? tap = null, int tapMs = 220) =>
-        new() { Kind = BindingKind.LayerHold, LayerId = layerId, Tap = tap, TapMs = tapMs };
-    public static Binding Toggle(string layerId) => new() { Kind = BindingKind.LayerToggle, LayerId = layerId };
+    public static Binding Hold(string layoutId, Binding? tap = null, int tapMs = 220) =>
+        new() { Kind = BindingKind.LayoutHold, LayoutId = layoutId, Tap = tap, TapMs = tapMs };
+    public static Binding Toggle(string layoutId) => new() { Kind = BindingKind.LayoutToggle, LayoutId = layoutId };
     public static Binding Keyboard() => new() { Kind = BindingKind.ToggleKeyboard };
     public static Binding Base() => new() { Kind = BindingKind.UseBase };
     public static Binding Pad(ControlId button) => new() { Kind = BindingKind.Pad, PadButton = button };
@@ -162,8 +169,8 @@ public static class BindingText
             _ => "Mouse",
         },
         BindingKind.Scroll => DescribeScroll(binding),
-        BindingKind.LayerHold => string.IsNullOrEmpty(binding.LayerId) ? "Hold layer" : $"Hold {binding.LayerId}",
-        BindingKind.LayerToggle => string.IsNullOrEmpty(binding.LayerId) ? "Toggle layer" : $"Toggle {binding.LayerId}",
+        BindingKind.LayoutHold => string.IsNullOrEmpty(binding.LayoutId) ? "Hold layout" : $"Hold {binding.LayoutId}",
+        BindingKind.LayoutToggle => string.IsNullOrEmpty(binding.LayoutId) ? "Toggle layout" : $"Toggle {binding.LayoutId}",
         BindingKind.ToggleKeyboard => "On-screen keyboard",
         BindingKind.UseBase => "Base binding",
         BindingKind.Pad => string.IsNullOrEmpty(binding.Action) ? ControlNames.PadLabel(binding.PadButton) : binding.Action,

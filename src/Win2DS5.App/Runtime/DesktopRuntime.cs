@@ -15,8 +15,8 @@ public sealed class RuntimeSnapshot
     public bool DesktopEnabled { get; init; }
     public bool HidHideInstalled { get; init; }
     public bool KeyboardOpen { get; init; }
-    public string LayerName { get; init; } = "Base";
-    public string ActiveLayerId { get; init; } = "";
+    public string LayoutName { get; init; } = "Base";
+    public string ActiveLayoutId { get; init; } = "";
     public string Light { get; init; } = "";
     public string ShellColor { get; init; } = "";
     public string ShellImage { get; init; } = "";
@@ -108,7 +108,7 @@ public sealed class DesktopRuntime : IDisposable
     private long _nextWarningScan;
     private volatile int _accentLight = 0x7EB6FF;
     private int _sentLight = -1;
-    private string _liveLayerId = "";
+    private string _liveLayoutId = "";
     private volatile bool _forceLight;
 
     public DesktopRuntime(ProfileDocument document, string path)
@@ -354,12 +354,12 @@ public sealed class DesktopRuntime : IDisposable
         return true;
     }
 
-    public void SaveLayerBindings(string layerId, Layer draft)
+    public void SaveLayoutBindings(string layoutId, Layout draft)
     {
         List<OutputCommand>? released = null;
         lock (_gate)
         {
-            var shared = Editing.GetLayer(layerId);
+            var shared = Editing.GetLayout(layoutId);
             if (shared == null)
                 return;
             released = _session.ReleaseAll();
@@ -371,7 +371,7 @@ public sealed class DesktopRuntime : IDisposable
             {
                 if (applied.ProfileId != profileId)
                     continue;
-                applied.Layout.GetLayer(layerId)?.ReplaceBindings(draft);
+                applied.Layout.GetLayout(layoutId)?.ReplaceBindings(draft);
             }
 
             UseProfile(_session, ActiveInputKey);
@@ -554,7 +554,7 @@ public sealed class DesktopRuntime : IDisposable
             _session.LongPressMs = Document.Settings.LongPressMs;
             FitKeyboardTravel();
             result = _session.Step(frame, now);
-            _liveLayerId = result.ActiveLayerId;
+            _liveLayoutId = result.ActiveLayoutId;
             profileChanged |= ApplyProfileSwitch(_device.DevicePath, result.SwitchProfileId, _session);
             bool refreshExtras = _forceLight;
             _forceLight = false;
@@ -575,10 +575,10 @@ public sealed class DesktopRuntime : IDisposable
                 if (extraResult.Pause)
                     result.Pause = true;
                 result.Commands.AddRange(extraResult.Commands);
-                if (_session.DesktopEnabled && (refreshExtras || extraResult.ActiveLayerId != extra.LightLayer))
+                if (_session.DesktopEnabled && (refreshExtras || extraResult.ActiveLayoutId != extra.LightLayout))
                 {
-                    extra.LightLayer = extraResult.ActiveLayerId;
-                    extraLights.Add((extra.Device, LightRgb(extraResult.ActiveLayerId)));
+                    extra.LightLayout = extraResult.ActiveLayoutId;
+                    extraLights.Add((extra.Device, LightRgb(extraResult.ActiveLayoutId)));
                 }
             }
 
@@ -990,26 +990,26 @@ public sealed class DesktopRuntime : IDisposable
         return true;
     }
 
-    private int LightRgb(string layerId)
+    private int LightRgb(string layoutId)
     {
-        if (Theme.TryHex(LightHex(layerId), out var color))
+        if (Theme.TryHex(LightHex(layoutId), out var color))
             return (color.R << 16) | (color.G << 8) | color.B;
         return _accentLight;
     }
 
-    private string LightHex(string layerId)
+    private string LightHex(string layoutId)
     {
-        var layer = Document.LayerLibrary.FirstOrDefault(item => item.Id == layerId)
-            ?? _session.Profile.GetLayer(layerId)
-            ?? _session.Profile.BaseLayer;
-        return layer.Light ?? "";
+        var layout = Document.LayoutLibrary.FirstOrDefault(item => item.Id == layoutId)
+            ?? _session.Profile.GetLayout(layoutId)
+            ?? _session.Profile.BaseLayout;
+        return layout.Light ?? "";
     }
 
     private sealed class ExtraInput(DualSenseConnection device, MappingSession session)
     {
         public DualSenseConnection Device { get; } = device;
         public MappingSession Session { get; } = session;
-        public string LightLayer { get; set; } = "";
+        public string LightLayout { get; set; } = "";
     }
 
     private void MaintainFeedback()
@@ -1017,7 +1017,7 @@ public sealed class DesktopRuntime : IDisposable
         if (_device == null || !_session.DesktopEnabled)
             return;
         long now = Environment.TickCount64;
-        int light = LightRgb(_liveLayerId);
+        int light = LightRgb(_liveLayoutId);
         bool changed = light != _sentLight;
         byte r = (byte)(light >> 16), g = (byte)(light >> 8), b = (byte)light;
         if (_hapticOn && now >= _hapticUntil)
@@ -1051,9 +1051,9 @@ public sealed class DesktopRuntime : IDisposable
                 DesktopEnabled = _session.DesktopEnabled,
                 HidHideInstalled = _hidHideInstalled,
                 KeyboardOpen = _session.Keyboard.IsOpen,
-                LayerName = result.ActiveLayerName,
-                ActiveLayerId = result.ActiveLayerId,
-                Light = LightHex(result.ActiveLayerId),
+                LayoutName = result.ActiveLayoutName,
+                ActiveLayoutId = result.ActiveLayoutId,
+                Light = LightHex(result.ActiveLayoutId),
                 ShellColor = _session.Profile.ShellColor,
                 ShellImage = _session.Profile.ShellImage,
                 BatteryPercent = frame.BatteryPercent,
@@ -1091,9 +1091,9 @@ public sealed class DesktopRuntime : IDisposable
                 DesktopEnabled = _session.DesktopEnabled,
                 HidHideInstalled = _hidHideInstalled,
                 KeyboardOpen = _session.Keyboard.IsOpen,
-                LayerName = _session.Profile.BaseLayer.Name,
-                ActiveLayerId = _session.Profile.BaseLayer.Id,
-                Light = _session.Profile.BaseLayer.Light,
+                LayoutName = _session.Profile.BaseLayout.Name,
+                ActiveLayoutId = _session.Profile.BaseLayout.Id,
+                Light = _session.Profile.BaseLayout.Light,
                 ShellColor = _session.Profile.ShellColor,
                 ShellImage = _session.Profile.ShellImage,
                 Status = _device == null ? "Connect a DualSense." : _status,

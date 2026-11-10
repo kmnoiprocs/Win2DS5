@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Win2DS5.Core;
 
 public enum StickMode
@@ -88,7 +90,7 @@ public sealed class GyroSettings
     public bool InvertY { get; set; }
 }
 
-public sealed class Layer
+public sealed class Layout
 {
     public string Id { get; set; } = "base";
     public string Name { get; set; } = "Base";
@@ -109,16 +111,16 @@ public sealed class Layer
             Bindings[key] = binding;
     }
 
-    public Layer Clone()
+    public Layout Clone()
     {
-        var copy = System.Text.Json.JsonSerializer.Deserialize<Layer>(
+        var copy = System.Text.Json.JsonSerializer.Deserialize<Layout>(
             System.Text.Json.JsonSerializer.Serialize(this, ProfileStore.Options),
-            ProfileStore.Options) ?? new Layer();
+            ProfileStore.Options) ?? new Layout();
         copy.Bindings ??= new Dictionary<string, Binding>();
         return copy;
     }
 
-    public void ReplaceBindings(Layer source)
+    public void ReplaceBindings(Layout source)
     {
         var copy = source.Clone();
         Bindings.Clear();
@@ -136,8 +138,10 @@ public sealed class Profile
     public string ShellColor { get; set; } = "";
     public string ShellImage { get; set; } = "";
     public List<string> ProcessNames { get; set; } = [];
-    public List<Layer> Layers { get; set; } = [];
-    public string BaseLayerId { get; set; } = "";
+    [JsonPropertyName("layers")]
+    public List<Layout> Layouts { get; set; } = [];
+    [JsonPropertyName("baseLayerId")]
+    public string BaseLayoutId { get; set; } = "";
     public StickSettings LeftStick { get; set; } = new();
     public StickSettings RightStick { get; set; } = new();
     public TouchpadSettings Touchpad { get; set; } = new();
@@ -166,12 +170,12 @@ public sealed class Profile
         return created;
     }
 
-    public Layer? GetLayer(string id) => Layers.FirstOrDefault(layer => layer.Id == id);
+    public Layout? GetLayout(string id) => Layouts.FirstOrDefault(layout => layout.Id == id);
 
-    public Layer BaseLayer =>
-        (!string.IsNullOrEmpty(BaseLayerId) ? GetLayer(BaseLayerId) : null)
-        ?? GetLayer("base")
-        ?? Layers[0];
+    public Layout BaseLayout =>
+        (!string.IsNullOrEmpty(BaseLayoutId) ? GetLayout(BaseLayoutId) : null)
+        ?? GetLayout("base")
+        ?? Layouts[0];
 }
 
 public sealed class AppSettings
@@ -202,7 +206,8 @@ public sealed class ProfileDocument
     public string ActiveId { get; set; } = "";
     public List<Profile> Profiles { get; set; } = [];
     public List<OutputDevice> Outputs { get; set; } = [];
-    public List<Layer> LayerLibrary { get; set; } = [];
+    [JsonPropertyName("layerLibrary")]
+    public List<Layout> LayoutLibrary { get; set; } = [];
     public List<ControllerAssignment> Controllers { get; set; } = [];
     public AppSettings Settings { get; set; } = new();
 

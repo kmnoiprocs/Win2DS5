@@ -62,7 +62,7 @@ public static class ProfileStore
     }
 
     /// <summary>
-    /// Replaces saved profiles and layers with the shipping set. Outputs and appearance settings stay.
+    /// Replaces saved profiles and layouts with the shipping set. Outputs and appearance settings stay.
     /// </summary>
     public static void InstallShippingDefaults(string? path = null)
     {
@@ -107,7 +107,7 @@ public static class ProfileStore
     {
         document.Profiles ??= [];
         document.Outputs ??= [];
-        document.LayerLibrary ??= [];
+        document.LayoutLibrary ??= [];
         document.Controllers ??= [];
         document.Settings ??= new AppSettings();
         if (document.Profiles.Count == 0)
@@ -116,7 +116,7 @@ public static class ProfileStore
         foreach (var profile in document.Profiles)
         {
             profile.Inputs ??= [];
-            profile.Layers ??= [];
+            profile.Layouts ??= [];
             profile.ProcessNames ??= [];
             profile.ToggleChord ??= [nameof(ControlId.Mute), nameof(ControlId.Create)];
             profile.LeftStick ??= new StickSettings();
@@ -124,12 +124,12 @@ public static class ProfileStore
             profile.Touchpad ??= new TouchpadSettings();
             profile.Touchpad.Gestures ??= new Dictionary<string, Binding>();
             profile.Gyro ??= new GyroSettings();
-            if (profile.Layers.Count == 0)
-                profile.Layers.Add(new Layer { Id = "base", Name = "Base" });
-            foreach (var layer in profile.Layers)
+            if (profile.Layouts.Count == 0)
+                profile.Layouts.Add(new Layout { Id = "base", Name = "Base" });
+            foreach (var layout in profile.Layouts)
             {
-                layer.Bindings ??= new Dictionary<string, Binding>();
-                foreach (var binding in layer.Bindings.Values)
+                layout.Bindings ??= new Dictionary<string, Binding>();
+                foreach (var binding in layout.Bindings.Values)
                     PreserveCustomDelay(binding);
             }
 
@@ -137,16 +137,16 @@ public static class ProfileStore
                 PreserveCustomDelay(binding);
             foreach (var layout in profile.Inputs)
             {
-                layout.Layers ??= [];
+                layout.Layouts ??= [];
                 layout.LeftStick ??= new StickSettings();
                 layout.RightStick ??= new StickSettings();
                 layout.Touchpad ??= new TouchpadSettings();
                 layout.Touchpad.Gestures ??= new Dictionary<string, Binding>();
                 layout.Gyro ??= new GyroSettings();
-                foreach (var layer in layout.Layers)
+                foreach (var saved in layout.Layouts)
                 {
-                    layer.Bindings ??= new Dictionary<string, Binding>();
-                    foreach (var binding in layer.Bindings.Values)
+                    saved.Bindings ??= new Dictionary<string, Binding>();
+                    foreach (var binding in saved.Bindings.Values)
                         PreserveCustomDelay(binding);
                 }
             }
@@ -159,26 +159,26 @@ public static class ProfileStore
         document.Controllers.RemoveAll(item => document.Profiles.All(profile => profile.Id != item.ProfileId));
         if (document.Settings.LongPressMs is < 100 or > 1000)
             document.Settings.LongPressMs = 350;
-        ShareLayers(document);
+        ShareLayouts(document);
         foreach (var profile in document.Profiles)
         {
-            if (profile.Layers.Count == 0)
+            if (profile.Layouts.Count == 0)
                 continue;
-            if (string.IsNullOrEmpty(profile.BaseLayerId) || profile.GetLayer(profile.BaseLayerId) == null)
-                profile.BaseLayerId = (profile.GetLayer("base") ?? profile.Layers[0]).Id;
-            NameShippingLayer(profile.BaseLayer);
-            foreach (var layer in profile.Layers)
-                NameShippingLayer(layer);
+            if (string.IsNullOrEmpty(profile.BaseLayoutId) || profile.GetLayout(profile.BaseLayoutId) == null)
+                profile.BaseLayoutId = (profile.GetLayout("base") ?? profile.Layouts[0]).Id;
+            NameShippingLayout(profile.BaseLayout);
+            foreach (var layout in profile.Layouts)
+                NameShippingLayout(layout);
         }
 
-        foreach (var layer in document.LayerLibrary)
-            NameShippingLayer(layer);
+        foreach (var layout in document.LayoutLibrary)
+            NameShippingLayout(layout);
         EnsureOutputs(document);
     }
 
-    private static void NameShippingLayer(Layer layer)
+    private static void NameShippingLayout(Layout layout)
     {
-        string? name = layer.Id switch
+        string? name = layout.Id switch
         {
             "base-ds4" => "DS4",
             "base-xbox" => "XBOX",
@@ -190,50 +190,50 @@ public static class ProfileStore
             "precision-sticks" => "Sticks precision",
             _ => null,
         };
-        if (name != null && layer.Name is "Base" or "Shift" or "Precision")
-            layer.Name = name;
+        if (name != null && layout.Name is "Base" or "Shift" or "Precision")
+            layout.Name = name;
     }
 
-    private static void ShareLayers(ProfileDocument document)
+    private static void ShareLayouts(ProfileDocument document)
     {
-        var preexisting = document.LayerLibrary.Select(layer => layer.Id).ToHashSet(StringComparer.Ordinal);
+        var preexisting = document.LayoutLibrary.Select(layout => layout.Id).ToHashSet(StringComparer.Ordinal);
         foreach (var profile in document.Profiles)
         {
-            for (int i = 0; i < profile.Layers.Count; i++)
+            for (int i = 0; i < profile.Layouts.Count; i++)
             {
-                var layer = profile.Layers[i];
-                if (string.IsNullOrWhiteSpace(layer.Id))
-                    layer.Id = Guid.NewGuid().ToString("N");
-                var shared = document.LayerLibrary.FirstOrDefault(item => item.Id == layer.Id);
+                var layout = profile.Layouts[i];
+                if (string.IsNullOrWhiteSpace(layout.Id))
+                    layout.Id = Guid.NewGuid().ToString("N");
+                var shared = document.LayoutLibrary.FirstOrDefault(item => item.Id == layout.Id);
                 if (shared == null)
                 {
-                    document.LayerLibrary.Add(layer);
+                    document.LayoutLibrary.Add(layout);
                     continue;
                 }
 
-                if (ReferenceEquals(shared, layer))
+                if (ReferenceEquals(shared, layout))
                     continue;
-                if (preexisting.Contains(layer.Id))
+                if (preexisting.Contains(layout.Id))
                 {
-                    profile.Layers[i] = shared;
+                    profile.Layouts[i] = shared;
                     continue;
                 }
 
-                string oldId = layer.Id;
-                layer.Id = Guid.NewGuid().ToString("N");
-                if (profile.BaseLayerId == oldId)
-                    profile.BaseLayerId = layer.Id;
-                RewriteLayerId(profile, oldId, layer.Id);
-                document.LayerLibrary.Add(layer);
+                string oldId = layout.Id;
+                layout.Id = Guid.NewGuid().ToString("N");
+                if (profile.BaseLayoutId == oldId)
+                    profile.BaseLayoutId = layout.Id;
+                RewriteLayoutId(profile, oldId, layout.Id);
+                document.LayoutLibrary.Add(layout);
             }
         }
     }
 
-    private static void RewriteLayerId(Profile profile, string oldId, string newId)
+    private static void RewriteLayoutId(Profile profile, string oldId, string newId)
     {
-        foreach (var layer in profile.Layers)
+        foreach (var layout in profile.Layouts)
         {
-            foreach (var binding in layer.Bindings.Values)
+            foreach (var binding in layout.Bindings.Values)
                 Rewrite(binding, oldId, newId);
         }
 
@@ -248,8 +248,8 @@ public static class ProfileStore
     {
         if (binding == null)
             return;
-        if (binding.LayerId == oldId)
-            binding.LayerId = newId;
+        if (binding.LayoutId == oldId)
+            binding.LayoutId = newId;
         Rewrite(binding.Tap, oldId, newId);
     }
 
@@ -273,17 +273,17 @@ public static class ProfileStore
             output.Name = OutputCatalog.Display(output.Kind, output.Slot);
         foreach (var profile in document.Profiles)
         {
-            StampProfile(profile.Layers, profile.Touchpad, profile.LeftStick, profile.RightStick, mouse, keyboard, pad, document.Outputs);
+            StampProfile(profile.Layouts, profile.Touchpad, profile.LeftStick, profile.RightStick, mouse, keyboard, pad, document.Outputs);
             foreach (var layout in profile.Inputs)
-                StampProfile(layout.Layers, layout.Touchpad, layout.LeftStick, layout.RightStick, mouse, keyboard, pad, document.Outputs);
+                StampProfile(layout.Layouts, layout.Touchpad, layout.LeftStick, layout.RightStick, mouse, keyboard, pad, document.Outputs);
         }
     }
 
-    private static void StampProfile(List<Layer> layers, TouchpadSettings touch, StickSettings left, StickSettings right, string mouse, string keyboard, string pad, List<OutputDevice> outputs)
+    private static void StampProfile(List<Layout> layouts, TouchpadSettings touch, StickSettings left, StickSettings right, string mouse, string keyboard, string pad, List<OutputDevice> outputs)
     {
-        foreach (var layer in layers)
+        foreach (var layout in layouts)
         {
-            foreach (var binding in layer.Bindings.Values)
+            foreach (var binding in layout.Bindings.Values)
                 Stamp(binding, mouse, keyboard, pad, outputs);
         }
 
@@ -331,7 +331,7 @@ public static class ProfileStore
     {
         if (profile.LeftStick.Mode == StickMode.Gamepad || profile.RightStick.Mode == StickMode.Gamepad)
             return true;
-        return profile.Layers.SelectMany(layer => layer.Bindings.Values).Any(binding => binding.Kind == BindingKind.Pad)
+        return profile.Layouts.SelectMany(layout => layout.Bindings.Values).Any(binding => binding.Kind == BindingKind.Pad)
             || profile.Touchpad.Gestures.Values.Any(binding => binding.Kind == BindingKind.Pad);
     }
 
