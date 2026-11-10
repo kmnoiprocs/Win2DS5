@@ -22,7 +22,7 @@
             </Storyboard>
         </Grid.Resources>
         <Grid.RowDefinitions>
-            <RowDefinition Height="56" />
+            <RowDefinition Height="48" />
             <RowDefinition Height="*" />
             <RowDefinition Height="38" />
         </Grid.RowDefinitions>
@@ -38,7 +38,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition x:Name="CaptionInset" Width="138" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <Grid Width="30" Height="30">
@@ -46,10 +46,7 @@
                         <Rectangle x:Name="LogoMark" RadiusX="9" RadiusY="9" Fill="{StaticResource AccentGradientBrush}" />
                         <FontIcon Glyph="&#xE7FC;" FontSize="15" Foreground="{StaticResource AccentInkBrush}" />
                     </Grid>
-                    <StackPanel VerticalAlignment="Center" Spacing="0">
-                        <TextBlock Text="Win2DS5" FontFamily="{StaticResource DisplayFont}" FontSize="15" FontWeight="SemiBold" />
-                        <TextBlock Text="DualSense desktop studio" FontSize="11" Foreground="{StaticResource MutedBrush}" />
-                    </StackPanel>
+                    <TextBlock Text="Win2DS5" FontFamily="{StaticResource DisplayFont}" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </StackPanel>
                 <Button x:Name="ModeChip" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Click="OnModeChip"
                         Style="{StaticResource QuietButtonStyle}" CornerRadius="15" Padding="12,5"
@@ -67,9 +64,10 @@
                     </StackPanel>
                 </Button>
                 <Grid x:Name="DragRegion" Grid.Column="2" Background="Transparent" />
-                <Button x:Name="ThemeButton" Grid.Column="3" Style="{StaticResource GhostButtonStyle}" VerticalAlignment="Center"
-                        Click="OnThemeButton" Padding="9" CornerRadius="10">
-                    <FontIcon x:Name="ThemeGlyph" Glyph="&#xE708;" FontSize="15" />
+                <Button x:Name="ThemeButton" Grid.Column="3" Style="{StaticResource GhostButtonStyle}"
+                        VerticalAlignment="Stretch" Width="46" Padding="0" Margin="0,0,-14,0" CornerRadius="0"
+                        Click="OnThemeButton">
+                    <FontIcon x:Name="ThemeGlyph" Glyph="&#xE708;" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
             </Grid>
         </Grid>
@@ -129,7 +127,8 @@
             </Border>
 
             <Grid x:Name="Pages" Grid.Column="1" Margin="22,18,22,14">
-                <views:ControlsPage x:Name="Controls" />
+                <views:DevicesPage x:Name="Devices" />
+                <views:ControlsPage x:Name="Controls" Visibility="Collapsed" />
                 <views:TouchpadPage x:Name="Touchpad" Visibility="Collapsed" />
                 <views:KeyboardPage x:Name="Keyboard" Visibility="Collapsed" />
                 <views:ProfilesPage x:Name="Profiles" Visibility="Collapsed" />

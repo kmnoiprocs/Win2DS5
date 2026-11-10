@@ -12,6 +12,7 @@ namespace Win2DS5.App.Controls;
 
 public sealed class BindingPanel : UserControl
 {
+    private readonly TextBlock _eyebrow = new() { Text = "BINDING", Style = (Style)Application.Current.Resources["EyebrowText"] };
     private readonly TextBlock _title = new() { FontSize = 22, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, FontFamily = (FontFamily)Application.Current.Resources["DisplayFont"] };
     private readonly TextBlock _hint = new() { Style = (Style)Application.Current.Resources["CaptionText"], TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _summary = new() { FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = Theme.Brush("AccentTextBrush"), TextTrimming = TextTrimming.CharacterEllipsis };
@@ -35,6 +36,15 @@ public sealed class BindingPanel : UserControl
     private bool _allowLongPress = true;
     private bool _allowBase = true;
     private int _holdMs = 350;
+    private readonly TextBlock _outputLabel = new() { Text = "Send this button to", Style = (Style)Application.Current.Resources["CaptionText"] };
+    private readonly VariableSizedWrapGrid _outputChips = new()
+    {
+        Orientation = Orientation.Horizontal,
+        ItemHeight = 34,
+        ItemWidth = 118,
+    };
+    private readonly List<OutputDevice> _outputs = [];
+    private string _outputId = "";
     private ActionEditor? _recording;
 
     public BindingPanel()
@@ -72,7 +82,7 @@ public sealed class BindingPanel : UserControl
         };
 
         var root = new StackPanel { Spacing = 12, Padding = new Thickness(18) };
-        root.Children.Add(new TextBlock { Text = "BINDING", Style = (Style)Application.Current.Resources["EyebrowText"] });
+        root.Children.Add(_eyebrow);
         root.Children.Add(_title);
         root.Children.Add(new Border
         {
@@ -81,6 +91,8 @@ public sealed class BindingPanel : UserControl
             Child = _summary,
         });
         root.Children.Add(_hint);
+        root.Children.Add(_outputLabel);
+        root.Children.Add(_outputChips);
         root.Children.Add(new Rectangle { Height = 1, Fill = Theme.Brush("LineBrush"), Margin = new Thickness(0, 2, 0, 2) });
         root.Children.Add(_shortLabel);
         root.Children.Add(_short.Root);
@@ -108,9 +120,16 @@ public sealed class BindingPanel : UserControl
 
     public event Action<Binding?>? BindingChanged;
 
+    public void ShowChrome(bool show)
+    {
+        var visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        _eyebrow.Visibility = visibility;
+        _title.Visibility = visibility;
+    }
+
     public void Attach(UIElement root) => root.KeyDown += OnKeyDown;
 
-    public void Show(string title, string hint, Binding? binding, IReadOnlyList<Layer> layers, bool allowLayers, bool allowLongPress, bool allowBase)
+    public void Show(string title, string hint, Binding? binding, IReadOnlyList<Layer> layers, bool allowLayers, bool allowLongPress, bool allowBase, IReadOnlyList<OutputDevice>? outputs = null)
     {
         _loading = true;
         _allowLayers = allowLayers;
@@ -118,6 +137,11 @@ public sealed class BindingPanel : UserControl
         _allowBase = allowBase;
         _title.Text = title;
         _hint.Text = hint;
+        _outputs.Clear();
+        if (outputs != null)
+            _outputs.AddRange(outputs);
+        _outputId = OutputCatalog.Infer(binding, _outputs);
+        BuildOutputChips();
         _holdMs = binding?.OverrideDelay == true ? Math.Clamp(binding.TapMs, 100, 1000) : GlobalDelay();
         _overrideDelay.IsChecked = binding?.OverrideDelay == true;
         _delay.Value = _holdMs;
@@ -125,6 +149,9 @@ public sealed class BindingPanel : UserControl
         CancelRecording();
         _short.SetLayers(layers);
         _long.SetLayers(layers);
+        var profiles = App.Runtime.Document.Profiles;
+        _short.SetProfiles(profiles);
+        _long.SetProfiles(profiles);
         bool split = allowLongPress && binding?.Tap != null;
         _advanced.IsOn = allowLongPress && (binding?.Advanced == true || split || (binding?.PressSteps.Count ?? 0) > 0 || (binding?.ReleaseSteps.Count ?? 0) > 0);
         _longPress.IsChecked = split;
@@ -144,7 +171,83 @@ public sealed class BindingPanel : UserControl
 
         _loading = false;
         RefreshAdvanced();
-        _summary.Text = BindingText.Describe(binding);
+        _summary.Text = Summary(binding);
+    }
+
+    private void BuildOutputChips()
+    {
+        _outputChips.Children.Clear();
+        _outputLabel.Visibility = _outputs.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        _outputChips.Visibility = _outputLabel.Visibility;
+        foreach (var output in _outputs)
+        {
+            bool on = output.Id == _outputId;
+            var button = new Button
+            {
+                Content = output.Name,
+                Tag = output.Id,
+                Style = (Style)Application.Current.Resources[on ? "PrimaryButtonStyle" : "QuietButtonStyle"],
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8, 4, 8, 4),
+                FontSize = 12,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 6, 6),
+            };
+            button.Click += (_, _) =>
+            {
+                if (_loading)
+                    return;
+                _outputId = (string)button.Tag;
+                BuildOutputChips();
+                ConfigureEditors();
+                if (!KindFits(_short.Kind))
+                    _short.Select(DefaultKind());
+                Commit();
+            };
+            _outputChips.Children.Add(button);
+        }
+    }
+
+    private bool KindFits(BindingKind kind)
+    {
+        if (kind == BindingKind.Profile)
+            return true;
+        var output = OutputCatalog.Find(_outputs, _outputId);
+        if (output == null)
+            return true;
+        return output.Kind switch
+        {
+            OutputDeviceKind.Mouse => kind is BindingKind.None or BindingKind.Mouse or BindingKind.Scroll or BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.UseBase,
+            OutputDeviceKind.Keyboard => kind is BindingKind.None or BindingKind.Key or BindingKind.ToggleKeyboard or BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.UseBase,
+            _ => kind is BindingKind.None or BindingKind.Pad or BindingKind.LayerHold or BindingKind.LayerToggle or BindingKind.UseBase,
+        };
+    }
+
+    private BindingKind DefaultKind()
+    {
+        var output = OutputCatalog.Find(_outputs, _outputId);
+        return output?.Kind switch
+        {
+            OutputDeviceKind.Mouse => BindingKind.Mouse,
+            OutputDeviceKind.Keyboard => BindingKind.Key,
+            OutputDeviceKind.DualShock4 or OutputDeviceKind.Xbox => BindingKind.Pad,
+            _ => BindingKind.None,
+        };
+    }
+
+    private string Summary(Binding? binding)
+    {
+        var note = ConfigWarnings.ForBinding(App.Runtime.Document, App.Runtime.Editing, binding);
+        if (!string.IsNullOrEmpty(note))
+        {
+            _summary.Foreground = Theme.Brush("AmberBrush");
+            return note;
+        }
+
+        _summary.Foreground = Theme.Brush("AccentTextBrush");
+        var text = BindingText.Describe(binding);
+        var output = OutputCatalog.Find(_outputs, binding?.OutputId);
+        return output == null ? text : output.Name + "  ·  " + text;
     }
 
     private void OnLongToggled()
@@ -161,8 +264,9 @@ public sealed class BindingPanel : UserControl
     private void ConfigureEditors()
     {
         bool split = _longPress.IsChecked == true;
-        _short.Configure(_allowLayers, _allowBase && !split);
-        _long.Configure(_allowLayers, useBase: false);
+        var output = OutputCatalog.Find(_outputs, _outputId);
+        _short.Configure(_allowLayers, _allowBase && !split, output?.Kind);
+        _long.Configure(_allowLayers, useBase: false, output?.Kind);
     }
 
     private void OnOverrideToggled()
@@ -305,13 +409,15 @@ public sealed class BindingPanel : UserControl
             return;
         RefreshAdvanced();
         var binding = Build();
-        _summary.Text = BindingText.Describe(binding);
+        _summary.Text = Summary(binding);
         BindingChanged?.Invoke(binding);
     }
 
     private Binding? Build()
     {
         var primary = _short.Build() ?? new Binding { Kind = BindingKind.None };
+        primary.OutputId = _outputId;
+        OutputCatalog.Remember(primary, _outputs);
         if (!_allowLongPress || !_advanced.IsOn)
             return primary;
 
@@ -319,10 +425,17 @@ public sealed class BindingPanel : UserControl
         primary.PressSteps = _pressSteps.Snapshot();
         primary.ReleaseSteps = _releaseSteps.Snapshot();
         if (_longPress.IsChecked != true)
+        {
+            primary.OutputId = _outputId;
+            OutputCatalog.Remember(primary, _outputs);
             return primary;
+        }
 
         var held = _long.Build() ?? new Binding { Kind = BindingKind.None };
-        held.Tap = primary.Kind == BindingKind.None && primary.Keys.Count == 0 ? new Binding { Kind = BindingKind.None } : WithoutSteps(primary);
+        held.OutputId = _outputId;
+        held.Tap = primary.Kind == BindingKind.None && primary.Keys.Count == 0 ? new Binding { Kind = BindingKind.None, OutputId = _outputId } : WithoutSteps(primary);
+        held.Tap.OutputId = _outputId;
+        OutputCatalog.Remember(held, _outputs);
         held.Advanced = true;
         held.PressSteps = _pressSteps.Snapshot();
         held.ReleaseSteps = _releaseSteps.Snapshot();
@@ -427,6 +540,8 @@ public sealed class BindingPanel : UserControl
         private readonly ComboBox _scroll = Combo();
         private readonly ComboBox _layer = Combo();
         private readonly ComboBox _pad = Combo();
+        private readonly ComboBox _profile = Combo();
+        private readonly List<string> _profileIds = [];
         private readonly TextBlock _keys = new() { TextWrapping = TextWrapping.Wrap, FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = Theme.Brush("AccentTextBrush") };
         private readonly Border _keysBox = new() { Style = (Style)Application.Current.Resources["InsetStyle"], MinHeight = 46 };
         private readonly Button _record = new() { Content = "Record keys", Style = (Style)Application.Current.Resources["PrimaryButtonStyle"] };
@@ -435,6 +550,7 @@ public sealed class BindingPanel : UserControl
         private readonly StackPanel _scrollSection = new() { Spacing = 8 };
         private readonly StackPanel _layerSection = new() { Spacing = 8 };
         private readonly StackPanel _padSection = new() { Spacing = 8 };
+        private readonly StackPanel _profileSection = new() { Spacing = 8 };
         private readonly List<KeyStroke> _recorded = [];
         private IReadOnlyList<Layer> _layers = [];
         private bool _loading;
@@ -468,17 +584,26 @@ public sealed class BindingPanel : UserControl
             _layerSection.Children.Add(_layer);
             _padSection.Children.Add(Label("Controller button"));
             _padSection.Children.Add(_pad);
+            _profileSection.Children.Add(Label("Profile"));
+            _profileSection.Children.Add(_profile);
+            _profileSection.Children.Add(new TextBlock
+            {
+                Style = (Style)Application.Current.Resources["CaptionText"],
+                TextWrapping = TextWrapping.Wrap,
+                Text = "Pressing this button switches the profile on the controller you pressed. Other controllers keep the profile they are using.",
+            });
             _padSection.Children.Add(new TextBlock
             {
                 Style = (Style)Application.Current.Resources["CaptionText"],
                 TextWrapping = TextWrapping.Wrap,
-                Text = "Desktop mode keeps the real DualSense hidden and sends this through a virtual Xbox controller. Cross, Circle, Square, and Triangle arrive as A, B, X, and Y. Share is Back, Options is Start, and PS, the touchpad click, and Mute arrive as Guide.",
+                Text = "Desktop mode keeps the real DualSense hidden and sends this through a virtual XBOX controller. Cross, Circle, Square, and Triangle arrive as A, B, X, and Y. Share is Back, Options is Start, and PS, the touchpad click, and Mute arrive as Guide.",
             });
             Root.Children.Add(_keySection);
             Root.Children.Add(_mouseSection);
             Root.Children.Add(_scrollSection);
             Root.Children.Add(_layerSection);
             Root.Children.Add(_padSection);
+            Root.Children.Add(_profileSection);
             Fill(_mouse, "Left click", "Right click", "Middle click", "Mouse back", "Mouse forward");
             Fill(_scroll, "Scroll up", "Scroll down", "Scroll left", "Scroll right");
             foreach (var button in ControlNames.OutputButtons)
@@ -493,6 +618,7 @@ public sealed class BindingPanel : UserControl
             _scroll.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
             _layer.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
             _pad.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
+            _profile.SelectionChanged += (_, _) => { if (!_loading) Changed?.Invoke(); };
             Configure(true, true);
         }
 
@@ -506,7 +632,8 @@ public sealed class BindingPanel : UserControl
             _layers = layers;
             var selected = _layer.SelectedItem as string;
             _layer.Items.Clear();
-            foreach (var layer in layers.Where(layer => layer.Id != "base"))
+            string home = layers.FirstOrDefault()?.Id ?? "base";
+            foreach (var layer in layers.Where(layer => layer.Id != "base" && layer.Id != home))
                 _layer.Items.Add(layer.Name);
             if (_layer.Items.Count == 0)
                 _layer.Items.Add("Shift");
@@ -515,26 +642,63 @@ public sealed class BindingPanel : UserControl
                 _layer.SelectedIndex = 0;
         }
 
-        public void Configure(bool layers, bool useBase)
+        public void SetProfiles(IReadOnlyList<Profile> profiles)
+        {
+            string selected = SelectedProfileId();
+            _profile.Items.Clear();
+            _profileIds.Clear();
+            foreach (var profile in profiles)
+            {
+                _profileIds.Add(profile.Id);
+                _profile.Items.Add(profile.Name);
+            }
+
+            if (_profileIds.Count == 0)
+            {
+                _profileIds.Add("");
+                _profile.Items.Add("No profiles");
+            }
+
+            int index = _profileIds.IndexOf(selected);
+            _profile.SelectedIndex = index >= 0 ? index : 0;
+        }
+
+        private string SelectedProfileId() =>
+            _profile.SelectedIndex >= 0 && _profile.SelectedIndex < _profileIds.Count
+                ? _profileIds[_profile.SelectedIndex]
+                : "";
+
+        public void Configure(bool layers, bool useBase, OutputDeviceKind? output = null)
         {
             var current = _options.Count == 0 ? BindingKind.None : Kind;
             _loading = true;
             _options.Clear();
             _kind.Items.Clear();
+            bool key = output is null or OutputDeviceKind.Keyboard;
+            bool mouse = output is null or OutputDeviceKind.Mouse;
+            bool pad = output is null or OutputDeviceKind.DualShock4 or OutputDeviceKind.Xbox;
             Add(BindingKind.None, "None");
-            Add(BindingKind.Key, "Key");
-            Add(BindingKind.Mouse, "Mouse button");
-            Add(BindingKind.Scroll, "Scroll");
+            if (key)
+                Add(BindingKind.Key, "Key");
+            if (mouse)
+            {
+                Add(BindingKind.Mouse, "Mouse button");
+                Add(BindingKind.Scroll, "Scroll");
+            }
+
             if (layers)
             {
                 Add(BindingKind.LayerHold, "Hold layer");
                 Add(BindingKind.LayerToggle, "Toggle layer");
-                Add(BindingKind.ToggleKeyboard, "On-screen keyboard");
+                if (key)
+                    Add(BindingKind.ToggleKeyboard, "On-screen keyboard");
             }
 
             if (useBase)
                 Add(BindingKind.UseBase, "Use base binding");
-            Add(BindingKind.Pad, "DS5 buttons");
+            if (pad)
+                Add(BindingKind.Pad, output == OutputDeviceKind.DualShock4 ? "DS4 button" : "Controller button");
+            Add(BindingKind.Profile, "Profiles");
             Select(current);
             _loading = false;
             ShowSections();
@@ -565,6 +729,9 @@ public sealed class BindingPanel : UserControl
                 _layer.SelectedIndex = 0;
             int pad = _pads.IndexOf(binding?.PadButton ?? ControlId.Cross);
             _pad.SelectedIndex = pad >= 0 ? pad : 0;
+            int profileIndex = _profileIds.IndexOf(binding?.ProfileId ?? "");
+            if (profileIndex >= 0)
+                _profile.SelectedIndex = profileIndex;
             _loading = false;
             ShowSections();
         }
@@ -587,6 +754,7 @@ public sealed class BindingPanel : UserControl
                 BindingKind.ToggleKeyboard => Binding.Keyboard(),
                 BindingKind.UseBase => Binding.Base(),
                 BindingKind.Pad => Binding.Pad(_pads[Math.Clamp(_pad.SelectedIndex, 0, _pads.Count - 1)]),
+                BindingKind.Profile => Binding.SwitchProfile(SelectedProfileId()),
                 _ => null,
             };
         }
@@ -634,6 +802,7 @@ public sealed class BindingPanel : UserControl
             _scrollSection.Visibility = kind == BindingKind.Scroll ? Visibility.Visible : Visibility.Collapsed;
             _layerSection.Visibility = kind is BindingKind.LayerHold or BindingKind.LayerToggle ? Visibility.Visible : Visibility.Collapsed;
             _padSection.Visibility = kind == BindingKind.Pad ? Visibility.Visible : Visibility.Collapsed;
+            _profileSection.Visibility = kind == BindingKind.Profile ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private string SelectedLayerId()
@@ -659,7 +828,7 @@ public sealed class BindingPanel : UserControl
             box.SelectedIndex = 0;
         }
 
-        private static ComboBox Combo() => new() { HorizontalAlignment = HorizontalAlignment.Stretch, CornerRadius = new CornerRadius(9) };
+        private static ComboBox Combo() => new QuietComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, CornerRadius = new CornerRadius(9) };
     }
 
     private sealed class EdgeListEditor
@@ -740,8 +909,8 @@ public sealed class BindingPanel : UserControl
 
         private sealed class EdgeRow
         {
-            private readonly ComboBox _kind = new() { HorizontalAlignment = HorizontalAlignment.Stretch, CornerRadius = new CornerRadius(9) };
-            private readonly ComboBox _mouse = new() { HorizontalAlignment = HorizontalAlignment.Stretch, CornerRadius = new CornerRadius(9) };
+            private readonly ComboBox _kind = new QuietComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, CornerRadius = new CornerRadius(9) };
+            private readonly ComboBox _mouse = new QuietComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, CornerRadius = new CornerRadius(9) };
             private readonly Button _key = new() { Style = (Style)Application.Current.Resources["QuietButtonStyle"], Padding = new Thickness(8, 4, 8, 4) };
             private KeyStroke _stroke;
 

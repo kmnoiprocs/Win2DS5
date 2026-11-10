@@ -39,7 +39,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Pointer mode" Style="{StaticResource FieldText}" VerticalAlignment="Center" />
-                            <ComboBox x:Name="ModeBox" Grid.Column="1" MinWidth="150" CornerRadius="9" SelectionChanged="OnChanged" />
+                            <controls:QuietComboBox x:Name="ModeBox" Grid.Column="1" MinWidth="150" CornerRadius="9" SelectionChanged="OnChanged" />
                         </Grid>
                         <StackPanel>
                             <Grid>
@@ -78,8 +78,8 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <ComboBox x:Name="ZoneBox" Header="Zone" HorizontalAlignment="Stretch" CornerRadius="9" SelectionChanged="OnGestureTargetChanged" />
-                                <ComboBox x:Name="GestureBox" Grid.Column="1" Header="Gesture" HorizontalAlignment="Stretch" CornerRadius="9" SelectionChanged="OnGestureTargetChanged" />
+                                <controls:QuietComboBox x:Name="ZoneBox" Header="Zone" HorizontalAlignment="Stretch" CornerRadius="9" SelectionChanged="OnGestureTargetChanged" />
+                                <controls:QuietComboBox x:Name="GestureBox" Grid.Column="1" Header="Gesture" HorizontalAlignment="Stretch" CornerRadius="9" SelectionChanged="OnGestureTargetChanged" />
                             </Grid>
                         </StackPanel>
                         <controls:BindingPanel x:Name="GestureEditor" Grid.Row="1" />
@@ -99,8 +99,10 @@
                         <StackPanel Spacing="10">
                             <Grid>
                                 <TextBlock Text="LEFT STICK" Style="{StaticResource EyebrowText}" VerticalAlignment="Center" />
-                                <ComboBox x:Name="LeftMode" HorizontalAlignment="Right" MinWidth="130" CornerRadius="9" SelectionChanged="OnChanged" />
+                                <controls:QuietComboBox x:Name="LeftMode" HorizontalAlignment="Right" MinWidth="130" CornerRadius="9" SelectionChanged="OnChanged" />
                             </Grid>
+                            <controls:QuietComboBox x:Name="LeftOutput" Header="Output" HorizontalAlignment="Stretch" CornerRadius="9" SelectionChanged="OnChanged" />
+                            <TextBlock x:Name="LeftStickWarning" FontSize="11" Foreground="{StaticResource AmberBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="Speed" Style="{StaticResource FieldText}" />
@@ -127,8 +129,10 @@
                         <StackPanel Grid.Column="2" Spacing="10">
                             <Grid>
                                 <TextBlock Text="RIGHT STICK" Style="{StaticResource EyebrowText}" VerticalAlignment="Center" />
-                                <ComboBox x:Name="RightMode" HorizontalAlignment="Right" MinWidth="130" CornerRadius="9" SelectionChanged="OnChanged" />
+                                <controls:QuietComboBox x:Name="RightMode" HorizontalAlignment="Right" MinWidth="130" CornerRadius="9" SelectionChanged="OnChanged" />
                             </Grid>
+                            <controls:QuietComboBox x:Name="RightOutput" Header="Output" HorizontalAlignment="Stretch" CornerRadius="9" SelectionChanged="OnChanged" />
+                            <TextBlock x:Name="RightStickWarning" FontSize="11" Foreground="{StaticResource AmberBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="Speed" Style="{StaticResource FieldText}" />
@@ -170,7 +174,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="10">
-                            <ComboBox x:Name="GyroActivator" Header="Activator" HorizontalAlignment="Stretch" CornerRadius="9" SelectionChanged="OnChanged" />
+                            <controls:QuietComboBox x:Name="GyroActivator" Header="Activator" HorizontalAlignment="Stretch" CornerRadius="9" SelectionChanged="OnChanged" />
                             <StackPanel Orientation="Horizontal" Spacing="20">
                                 <CheckBox x:Name="InvertX" Content="Invert X" Checked="OnChanged" Unchecked="OnChanged" />
                                 <CheckBox x:Name="InvertY" Content="Invert Y" Checked="OnChanged" Unchecked="OnChanged" />

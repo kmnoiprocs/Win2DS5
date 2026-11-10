@@ -18,6 +18,7 @@ public sealed partial class SettingsPage : UserControl
     private readonly List<CheckBox> _checks = [];
     private readonly List<(Color Color, Ellipse Ring, Grid Glow)> _swatches = [];
     private bool _loading = true;
+    private string _chordProfile = "";
     private bool? _hideShown;
     private Glow? _hideGlow;
 
@@ -39,6 +40,8 @@ public sealed partial class SettingsPage : UserControl
 
     public void RefreshStatus(Runtime.RuntimeSnapshot snapshot)
     {
+        if (_chordProfile != App.Runtime.Editing.Id)
+            LoadChord();
         bool showDriver = snapshot.VirtualPadNeeded && !snapshot.VirtualPadReady;
         VirtualStatus.Text = showDriver
             ? "ViGEmBus is not installed. Desktop mode cannot send controller buttons to a game until it is."
@@ -133,27 +136,14 @@ public sealed partial class SettingsPage : UserControl
             AdminCaption.Text = "A game running as administrator ignores this app's mouse. Restarting as administrator fixes that, and pass-through can reconnect the controller for a game that is already open. The approval window itself still ignores the controller. Windows keeps that screen private.";
             AdminButton.Visibility = Visibility.Visible;
         }
-        ChordList.Children.Clear();
-        _checks.Clear();
-        var selected = App.Runtime.Document.Active.ToggleChord.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var control in ControlNames.Bindable)
-        {
-            var box = new CheckBox
-            {
-                Content = ControlNames.Display(control),
-                Tag = control.ToString(),
-                IsChecked = selected.Contains(control.ToString()),
-            };
-            _checks.Add(box);
-            ChordList.Children.Add(box);
-        }
+        LoadChord();
 
         SteamWarning.Text = Process.GetProcessesByName("steam").Length > 0
             ? "Steam is running. If Steam Input is enabled for the DualSense, it can take the controller before Win2DS5."
             : "";
         SteamWarning.Visibility = SteamWarning.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         GameBarWarning.Text = GameBarOn()
-            ? "Xbox Game Bar controller shortcuts are on. It can open over the desktop when you press the PS button."
+            ? "XBOX Game Bar controller shortcuts are on. It can open over the desktop when you press the PS button."
             : "";
         GameBarWarning.Visibility = GameBarWarning.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         VersionText.Text = "Version " + InstalledCopy.CurrentVersion;
@@ -224,8 +214,31 @@ public sealed partial class SettingsPage : UserControl
         }
 
         ChordWarning.Text = "";
-        App.Runtime.Update(() => App.Runtime.Document.Active.ToggleChord = names);
+        App.Runtime.Update(() => App.Runtime.Editing.ToggleChord = names);
         App.Runtime.Save();
+    }
+
+    private void LoadChord()
+    {
+        bool loading = _loading;
+        _loading = true;
+        _chordProfile = App.Runtime.Editing.Id;
+        ChordList.Children.Clear();
+        _checks.Clear();
+        var selected = App.Runtime.Editing.ToggleChord.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var control in ControlNames.Bindable)
+        {
+            var box = new CheckBox
+            {
+                Content = ControlNames.Display(control),
+                Tag = control.ToString(),
+                IsChecked = selected.Contains(control.ToString()),
+            };
+            _checks.Add(box);
+            ChordList.Children.Add(box);
+        }
+
+        _loading = loading;
     }
 
     private static bool GameBarOn()

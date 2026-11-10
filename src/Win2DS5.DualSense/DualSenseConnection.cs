@@ -21,42 +21,39 @@ public sealed class DualSenseConnection : IDisposable
     public bool Disconnected { get; private set; }
     public bool IsOpen => _stream != null && !Disconnected;
 
-    public static DualSenseConnection? TryOpen()
+    public readonly record struct ListedPad(string Path, string Name, bool Bluetooth, bool Edge);
+
+    public static IReadOnlyList<ListedPad> List()
     {
-        IEnumerable<HidDevice> devices;
-        try
+        var found = Scan().GroupBy(item => item.Device.DevicePath ?? "").Select(group => group.First()).ToList();
+        var counts = new Dictionary<string, int>();
+        var listed = new List<ListedPad>();
+        foreach (var item in found)
         {
-            devices = DeviceList.Local.GetHidDevices();
-        }
-        catch
-        {
-            return null;
-        }
-
-        var candidates = new List<(HidDevice Device, int Max, bool Bluetooth)>();
-        foreach (var device in devices)
-        {
-            if (device.VendorID != DualSenseIds.Vendor)
-                continue;
-            if (device.ProductID != DualSenseIds.DualSense && device.ProductID != DualSenseIds.Edge)
-                continue;
-            int max;
-            try
-            {
-                max = device.GetMaxInputReportLength();
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (max < 16)
-                continue;
-            bool bluetooth = IsBluetoothPath(device.DevicePath) || max >= 78;
-            candidates.Add((device, max, bluetooth));
+            string name = item.Device.ProductID == DualSenseIds.Edge ? "DualSense Edge" : "DualSense";
+            counts.TryGetValue(name, out int seen);
+            counts[name] = seen + 1;
+            if (seen > 0)
+                name += " " + (seen + 1);
+            listed.Add(new ListedPad(item.Device.DevicePath ?? "", name, item.Bluetooth, item.Device.ProductID == DualSenseIds.Edge));
         }
 
-        foreach (var candidate in candidates.OrderBy(item => Math.Abs(item.Max - (item.Bluetooth ? 78 : 64))))
+        return listed;
+    }
+
+    public void SetReadTimeout(int milliseconds)
+    {
+        if (_stream != null)
+            _stream.ReadTimeout = milliseconds;
+    }
+
+    public static DualSenseConnection? TryOpen(string? preferredPath = null)
+    {
+        var scanned = Scan();
+        IEnumerable<(HidDevice Device, int Max, bool Bluetooth)> candidates = string.IsNullOrEmpty(preferredPath)
+            ? scanned.OrderBy(item => Math.Abs(item.Max - (item.Bluetooth ? 78 : 64)))
+            : scanned.Where(item => item.Device.DevicePath == preferredPath);
+        foreach (var candidate in candidates)
         {
             var config = new OpenConfiguration();
             config.SetOption(OpenOption.Exclusive, false);
@@ -96,6 +93,44 @@ public sealed class DualSenseConnection : IDisposable
         }
 
         return null;
+    }
+
+    private static List<(HidDevice Device, int Max, bool Bluetooth)> Scan()
+    {
+        IEnumerable<HidDevice> devices;
+        try
+        {
+            devices = DeviceList.Local.GetHidDevices();
+        }
+        catch
+        {
+            return [];
+        }
+
+        var candidates = new List<(HidDevice Device, int Max, bool Bluetooth)>();
+        foreach (var device in devices)
+        {
+            if (device.VendorID != DualSenseIds.Vendor)
+                continue;
+            if (device.ProductID != DualSenseIds.DualSense && device.ProductID != DualSenseIds.Edge)
+                continue;
+            int max;
+            try
+            {
+                max = device.GetMaxInputReportLength();
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (max < 16)
+                continue;
+            bool bluetooth = IsBluetoothPath(device.DevicePath) || max >= 78;
+            candidates.Add((device, max, bluetooth));
+        }
+
+        return candidates;
     }
 
     public bool TryRead(out ControllerFrame frame)

@@ -11,6 +11,12 @@ public enum BindingKind
     ToggleKeyboard,
     UseBase,
     Pad,
+    Profile,
+    MouseMove,
+    StickNudge,
+    Pause,
+    Resume,
+    System,
 }
 
 public enum MouseButton
@@ -58,6 +64,20 @@ public sealed class EdgeStep
     public MouseButton Mouse { get; set; }
 }
 
+public sealed class MacroStep
+{
+    public string Code { get; set; } = "";
+    public bool Up { get; set; }
+    public bool Both { get; set; }
+    public int ScrollX { get; set; }
+    public int ScrollY { get; set; }
+    public string LayerId { get; set; } = "";
+    public string ProfileId { get; set; } = "";
+    public string Path { get; set; } = "";
+    public List<string> Targets { get; set; } = [];
+    public bool LayerToggle { get; set; }
+}
+
 public sealed class Binding
 {
     public BindingKind Kind { get; set; }
@@ -66,6 +86,7 @@ public sealed class Binding
     public int ScrollX { get; set; }
     public int ScrollY { get; set; }
     public string? LayerId { get; set; }
+    public string ProfileId { get; set; } = "";
     public ControlId PadButton { get; set; }
     public Binding? Tap { get; set; }
     public int TapMs { get; set; } = 350;
@@ -73,6 +94,15 @@ public sealed class Binding
     public bool Advanced { get; set; }
     public List<EdgeStep> PressSteps { get; set; } = [];
     public List<EdgeStep> ReleaseSteps { get; set; } = [];
+    public List<MacroStep> DownMacros { get; set; } = [];
+    public List<MacroStep> UpMacros { get; set; } = [];
+    public string OutputId { get; set; } = "";
+    public bool OutputKnown { get; set; }
+    public OutputDeviceKind OutputKind { get; set; }
+    public int OutputSlot { get; set; }
+    public string Action { get; set; } = "";
+    public string Path { get; set; } = "";
+    public List<string> Targets { get; set; } = [];
 
     public static Binding Key(params KeyStroke[] keys) => new() { Kind = BindingKind.Key, Keys = keys.ToList() };
     public static Binding MouseClick(MouseButton button) => new() { Kind = BindingKind.Mouse, Mouse = button };
@@ -83,9 +113,13 @@ public sealed class Binding
     public static Binding Keyboard() => new() { Kind = BindingKind.ToggleKeyboard };
     public static Binding Base() => new() { Kind = BindingKind.UseBase };
     public static Binding Pad(ControlId button) => new() { Kind = BindingKind.Pad, PadButton = button };
+    public static Binding SwitchProfile(string profileId) => new() { Kind = BindingKind.Profile, ProfileId = profileId };
+
+    public bool HasCustomSteps() =>
+        Advanced && ((PressSteps?.Count ?? 0) > 0 || (ReleaseSteps?.Count ?? 0) > 0 || (DownMacros?.Count ?? 0) > 0 || (UpMacros?.Count ?? 0) > 0);
 }
 
-public readonly record struct OutputCommand(OutputKind Kind, int A, int B)
+public readonly record struct OutputCommand(OutputKind Kind, int A, int B, string OutputId = "")
 {
     public static OutputCommand KeyDown(KeyStroke key) => new(OutputKind.KeyDown, key.ScanCode, key.Extended ? 1 : 0);
     public static OutputCommand KeyUp(KeyStroke key) => new(OutputKind.KeyUp, key.ScanCode, key.Extended ? 1 : 0);
@@ -107,14 +141,10 @@ public static class BindingText
         if (binding == null)
             return "Unbound";
         if (binding.Kind == BindingKind.None)
-            return binding.Advanced && ((binding.PressSteps?.Count ?? 0) > 0 || (binding.ReleaseSteps?.Count ?? 0) > 0)
-                ? "Custom press and release"
-                : "Unbound";
+            return binding.HasCustomSteps() ? "Custom press and release" : "Unbound";
         var action = DescribeKind(binding);
         if (binding.Tap == null)
-            return binding.Advanced && ((binding.PressSteps?.Count ?? 0) > 0 || (binding.ReleaseSteps?.Count ?? 0) > 0)
-                ? action + " · Custom press and release"
-                : action;
+            return binding.HasCustomSteps() ? action + " · Custom press and release" : action;
         var tap = binding.Tap.Kind == BindingKind.None ? "Nothing" : DescribeKind(binding.Tap);
         return $"Tap {tap} · Hold {action}";
     }
@@ -136,7 +166,12 @@ public static class BindingText
         BindingKind.LayerToggle => string.IsNullOrEmpty(binding.LayerId) ? "Toggle layer" : $"Toggle {binding.LayerId}",
         BindingKind.ToggleKeyboard => "On-screen keyboard",
         BindingKind.UseBase => "Base binding",
-        BindingKind.Pad => ControlNames.PadLabel(binding.PadButton),
+        BindingKind.Pad => string.IsNullOrEmpty(binding.Action) ? ControlNames.PadLabel(binding.PadButton) : binding.Action,
+        BindingKind.Profile => "Switch profile",
+        BindingKind.MouseMove => "Mouse move",
+        BindingKind.StickNudge => binding.Action.Length == 0 ? "Analog" : binding.Action,
+        BindingKind.Pause or BindingKind.Resume => "Toggle Win2DS5",
+        BindingKind.System => binding.Action.Length == 0 ? "Windows" : binding.Action,
         _ => "Unbound",
     };
 

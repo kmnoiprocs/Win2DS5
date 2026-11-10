@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using Win2DS5.App.Runtime;
 using Win2DS5.App.Theming;
@@ -23,27 +24,14 @@ public sealed partial class ControllerDiagram : UserControl
     private const double CanvasHeight = 560;
     private const double StickTravel = 14;
 
-    private const string BodyData =
-        "M 400,65 C 330,63 270,64 253,69 C 220,72 170,74 139,81 C 105,88 80,98 69,112 C 45,145 32,185 34,226 " +
-        "C 36,290 30,345 34,395 C 38,445 44,480 58,500 C 74,524 96,532 116,528 C 142,524 160,516 174,502 " +
-        "C 194,480 206,452 220,428 C 230,410 240,395 253,387 C 290,372 345,370 400,370 C 455,370 510,372 547,387 " +
-        "C 560,395 570,410 580,428 C 594,452 606,480 626,502 C 640,516 658,524 684,528 C 704,532 726,524 742,500 " +
-        "C 756,480 762,445 766,395 C 770,345 764,290 766,226 C 768,185 755,145 731,112 C 720,98 695,88 661,81 " +
-        "C 630,74 580,72 547,69 C 530,64 470,63 400,65 Z";
-
     private const string PlateData =
-        "M 272,224 L 528,224 C 560,226 586,242 592,272 C 600,318 580,360 547,387 C 510,372 455,370 400,370 " +
-        "C 345,370 290,372 253,387 C 220,360 200,318 208,272 C 214,242 240,226 272,224 Z";
+        "M 246,398 C 222,370 206,322 210,284 C 214,248 238,228 278,228 L 522,228 C 562,228 586,248 590,284 " +
+        "C 594,322 578,370 554,398 C 530,376 455,372 400,372 C 345,372 270,376 246,398 Z";
 
     private const string TouchpadData =
-        "M 272,70 L 528,70 C 536,70 540,75 539,83 L 530,205 C 529,216 522,222 511,222 L 289,222 " +
-        "C 278,222 271,216 270,205 L 261,83 C 260,75 264,70 272,70 Z";
+        "M 278,78 L 522,78 Q 530,78 530,86 L 519,200 Q 518,212 506,212 L 294,212 Q 282,212 281,200 L 270,86 Q 270,78 278,78 Z";
 
-    private const string L1Data =
-        "M 118,92 C 140,74 190,64 240,63 C 247,63 250,68 249,74 L 248,80 C 205,80 168,88 136,102 C 126,106 112,100 118,92 Z";
-
-    private const string L2Data =
-        "M 140,66 C 142,40 162,22 192,18 C 216,15 236,22 240,38 L 242,62 C 205,61 172,62 140,66 Z";
+    private const string LightbarData = "M 262,98 C 265,132 268,170 271,194 C 273,209 279,217 291,220";
 
     private const string ArmData = "M -15,-46 Q -15,-56 -5,-56 L 5,-56 Q 15,-56 15,-46 L 15,-26 L 0,-11 L -15,-26 Z";
     private const string ArrowData = "M -5.5,-36 L 5.5,-36 L 0,-43 Z";
@@ -51,13 +39,40 @@ public sealed partial class ControllerDiagram : UserControl
     private static readonly Regex Tokens = new(@"[A-Za-z]|-?(?:\d+\.?\d*|\.\d+)", RegexOptions.Compiled);
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
+    private static readonly Point ShellTop = new(400, 72);
+
+    private static readonly (Point C1, Point C2, Point End)[] LeftShell =
+    [
+        (new(350, 72), new(300, 72), new(262, 72)),
+        (new(215, 72), new(160, 76), new(122, 86)),
+        (new(88, 95), new(64, 114), new(52, 146)),
+        (new(38, 182), new(34, 226), new(35, 280)),
+        (new(36, 350), new(40, 430), new(56, 480)),
+        (new(70, 520), new(98, 536), new(128, 532)),
+        (new(156, 528), new(176, 510), new(190, 490)),
+        (new(208, 462), new(226, 416), new(246, 398)),
+        (new(270, 376), new(345, 372), new(400, 372)),
+    ];
+
+    private static readonly (Point P0, Point C1, Point C2, Point P3)[] ShoulderEdge =
+    [
+        (new(262, 72), new(215, 72), new(160, 76), new(122, 86)),
+        (new(122, 86), new(88, 95), new(64, 114), new(52, 146)),
+    ];
+
+    private static readonly string BodyData = Symmetric(ShellTop, LeftShell);
+
     private readonly Canvas _canvas = new() { Width = CanvasWidth, Height = CanvasHeight };
     private readonly Dictionary<ControlId, PadPart> _parts = [];
     private readonly HashSet<ControlId> _down = [];
     private readonly RadialGradientBrush _halo = new();
     private readonly List<Glow> _modeGlows = [];
     private readonly List<Path> _lightbars = [];
-    private readonly List<Grid> _lightbarGlows = [];
+    private readonly List<Path> _lightCores = [];
+    private readonly List<Grid> _lightHosts = [];
+    private readonly List<Glow> _lightGlows = [];
+    private Path _body = null!;
+    private Path _shade = null!;
     private Path _edge = null!;
     private Grid _edgeGlow = null!;
     private Path _playerLed = null!;
@@ -67,6 +82,22 @@ public sealed partial class ControllerDiagram : UserControl
     private Rect _touchArea;
     private ControlId _selected = ControlId.Cross;
     private int _mode = -1;
+    private Color? _layerLight;
+    private string _shellColor = "";
+    private string _shellImage = "";
+    private DateTime _shellStamp;
+    private string _light = "";
+    private readonly LinearGradientBrush _shadeBrush = new()
+    {
+        StartPoint = new Point(0.5, 0),
+        EndPoint = new Point(0.5, 1),
+        GradientStops =
+        {
+            new GradientStop { Offset = 0, Color = Color.FromArgb(0x40, 255, 255, 255) },
+            new GradientStop { Offset = 0.38, Color = Color.FromArgb(0x00, 255, 255, 255) },
+            new GradientStop { Offset = 1, Color = Color.FromArgb(0x72, 0, 0, 0) },
+        },
+    };
 
     public ControllerDiagram()
     {
@@ -115,6 +146,56 @@ public sealed partial class ControllerDiagram : UserControl
         _touch0.Set(snapshot.TouchActive, snapshot.TouchX, snapshot.TouchY, _touchArea);
         _touch1.Set(snapshot.Touch1Active, snapshot.Touch1X, snapshot.Touch1Y, _touchArea);
         SetMode(snapshot.Connected, snapshot.DesktopEnabled);
+        SetShell(snapshot.ShellColor, snapshot.ShellImage);
+        SetLight(snapshot.Light);
+    }
+
+    public void SetShell(string? color, string? image)
+    {
+        color ??= "";
+        image ??= "";
+        string path = ShellFiles.Existing(image);
+        var stamp = path.Length == 0 ? default : File.GetLastWriteTimeUtc(path);
+        if (color == _shellColor && image == _shellImage && stamp == _shellStamp)
+            return;
+        _shellColor = color;
+        _shellImage = image;
+        _shellStamp = stamp;
+        if (path.Length > 0)
+        {
+            var bitmap = new BitmapImage();
+            bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            bitmap.UriSource = new Uri(path);
+            _body.Fill = new ImageBrush
+            {
+                ImageSource = bitmap,
+                Stretch = Stretch.UniformToFill,
+                AlignmentX = AlignmentX.Center,
+                AlignmentY = AlignmentY.Center,
+            };
+            _shade.Opacity = 1;
+            return;
+        }
+
+        if (Theme.TryHex(color, out var paint))
+        {
+            _body.Fill = new SolidColorBrush(paint);
+            _shade.Opacity = 1;
+            return;
+        }
+
+        _body.Fill = Theme.Brush("PadShellBrush");
+        _shade.Opacity = 0;
+    }
+
+    public void SetLight(string? hex)
+    {
+        hex ??= "";
+        if (hex == _light)
+            return;
+        _light = hex;
+        _layerLight = Theme.TryHex(hex, out var color) ? color : null;
+        PaintLightbars();
     }
 
     private void Build()
@@ -129,17 +210,6 @@ public sealed partial class ControllerDiagram : UserControl
         Canvas.SetLeft(halo, -10);
         Canvas.SetTop(halo, 40);
         _canvas.Children.Add(halo);
-
-        var l2 = AddPart(ControlId.L2, L2Data, Key.Shell, new Point(191, 42), "L2");
-        var r2 = AddPart(ControlId.R2, Mirror(L2Data), Key.Shell, new Point(609, 42), "R2");
-        foreach (var trigger in new[] { l2, r2 })
-        {
-            trigger.ActiveStrength = 0.2;
-            AddLevel(trigger);
-        }
-
-        AddPart(ControlId.L2Full, RoundRect(78, 30, 52, 22, 11), Key.Shell, new Point(104, 41), "FULL", 9);
-        AddPart(ControlId.R2Full, RoundRect(670, 30, 52, 22, 11), Key.Shell, new Point(696, 41), "FULL", 9);
 
         var shadow = GlowLayer(BodyData, 34, () => Theme.IsDark ? Colors.Black : Color.FromArgb(255, 40, 52, 72), 6);
         shadow.Host.Opacity = 1;
@@ -157,6 +227,13 @@ public sealed partial class ControllerDiagram : UserControl
         body.Shape.Fill = Theme.Brush("PadShellBrush");
         body.Shape.Stroke = Theme.Brush("PadEdgeBrush");
         body.Shape.StrokeThickness = 1.2;
+        _body = body.Shape;
+
+        var shade = Layer(BodyData);
+        shade.Shape.Fill = _shadeBrush;
+        shade.Shape.Opacity = 0;
+        shade.Shape.IsHitTestVisible = false;
+        _shade = shade.Shape;
 
         var rim = Layer(BodyData);
         rim.Shape.Stroke = Theme.Brush("AccentBrush");
@@ -166,18 +243,6 @@ public sealed partial class ControllerDiagram : UserControl
 
         var plate = Layer(PlateData);
         plate.Shape.Fill = Theme.Brush("PadPlateBrush");
-
-        foreach (var data in new[] { "M 250,94 L 259,200", "M 550,94 L 541,200" })
-        {
-            var bar = GlowLayer(data, 14, ModeColor);
-            bar.Shape.StrokeThickness = 4;
-            bar.Shape.StrokeStartLineCap = PenLineCap.Round;
-            bar.Shape.StrokeEndLineCap = PenLineCap.Round;
-            Motion.Fade(bar.Host, 260);
-            _lightbars.Add(bar.Shape);
-            _lightbarGlows.Add(bar.Host);
-            _modeGlows.Add(bar.Glow);
-        }
 
         foreach (var cx in new[] { 284.0, 516.0 })
         {
@@ -191,28 +256,75 @@ public sealed partial class ControllerDiagram : UserControl
         touchpad.ActiveStrength = 0.32;
         BuildTouchLayer(touchpad);
 
-        AddPart(ControlId.L1, L1Data, Key.Shell, new Point(190, 75), "L1");
-        AddPart(ControlId.R1, Mirror(L1Data), Key.Shell, new Point(610, 75), "R1");
+        foreach (var data in new[] { LightbarData, Mirror(LightbarData) })
+        {
+            var soft = GlowLayer(data, 24, LightColor);
+            soft.Glow.SetOpacity(1f);
+            var tight = GlowLayer(data, 8, LightColor);
+            foreach (var bar in new[] { soft, tight })
+            {
+                bar.Shape.StrokeThickness = 5.5;
+                bar.Shape.StrokeStartLineCap = PenLineCap.Round;
+                bar.Shape.StrokeEndLineCap = PenLineCap.Round;
+                bar.Shape.StrokeLineJoin = PenLineJoin.Round;
+                _lightbars.Add(bar.Shape);
+                _lightHosts.Add(bar.Host);
+                _lightGlows.Add(bar.Glow);
+            }
 
-        var create = AddPart(ControlId.Create, RoundRect(226, 84, 15, 32, 7.5), Key.Shell, null, null);
-        AddDecor(create, "M 230.5,95 L 230.5,105 M 233.5,93 L 233.5,107 M 236.5,95 L 236.5,105", stroke: true, 1.3);
-        var options = AddPart(ControlId.Options, RoundRect(559, 84, 15, 32, 7.5), Key.Shell, null, null);
-        AddDecor(options, "M 563,95.5 L 570,95.5 M 563,100 L 570,100 M 563,104.5 L 570,104.5", stroke: true, 1.3);
+            var core = Layer(data);
+            core.Shape.Stroke = new SolidColorBrush(Color.FromArgb(170, 255, 255, 255));
+            core.Shape.StrokeThickness = 1.4;
+            core.Shape.StrokeStartLineCap = PenLineCap.Round;
+            core.Shape.StrokeEndLineCap = PenLineCap.Round;
+            _lightCores.Add(core.Shape);
+        }
 
-        var dpad = new Point(184, 196);
+        var bumper = Band(ShoulderEdge, 0.12, 1.42, 9, 7);
+        AddPart(ControlId.L1, bumper.Data, Key.Shell, bumper.Mid, "L1", 10);
+        AddPart(ControlId.R1, Mirror(bumper.Data), Key.Shell, Flip(bumper.Mid), "R1", 10);
+
+        var trigger = Band(ShoulderEdge, 0.28, 1.2, 31, 12);
+        var l2 = AddPart(ControlId.L2, trigger.Data, Key.Shell, trigger.Mid, "L2");
+        var r2 = AddPart(ControlId.R2, Mirror(trigger.Data), Key.Shell, Flip(trigger.Mid), "R2");
+        foreach (var part in new[] { l2, r2 })
+        {
+            part.ActiveStrength = 0.2;
+            AddLevel(part);
+        }
+
+        var full = new Point(trigger.End.X - 44, trigger.End.Y - 12);
+        AddPart(ControlId.L2Full, RoundRect(full.X - 24, full.Y - 10, 48, 20, 10), Key.Shell, full, "FULL", 9);
+        AddPart(ControlId.R2Full, RoundRect(CanvasWidth - full.X - 24, full.Y - 10, 48, 20, 10), Key.Shell, Flip(full), "FULL", 9);
+
+        var create = AddPart(ControlId.Create, RoundRect(227, 90, 14, 30, 7), Key.Shell, null, null, standout: true);
+        AddDecor(create, "M 231,100 L 231,110 M 234,98 L 234,112 M 237,100 L 237,110", stroke: true, 1.3);
+        var options = AddPart(ControlId.Options, RoundRect(559, 90, 14, 30, 7), Key.Shell, null, null, standout: true);
+        AddDecor(options, "M 562.5,100.5 L 569.5,100.5 M 562.5,105 L 569.5,105 M 562.5,109.5 L 569.5,109.5", stroke: true, 1.3);
+
+        const double cluster = 1.2;
+        var dpad = new Point(156, 172);
+        string arm = ScalePath(ArmData, cluster);
+        string arrow = ScalePath(ArrowData, cluster);
         var arms = new[] { ControlId.DPadUp, ControlId.DPadRight, ControlId.DPadDown, ControlId.DPadLeft };
         for (int q = 0; q < 4; q++)
         {
-            var arm = AddPart(arms[q], Rotate(ArmData, dpad, q), Key.Shell, null, null);
-            AddDecor(arm, Rotate(ArrowData, dpad, q), stroke: false);
+            var piece = AddPart(arms[q], Rotate(arm, dpad, q), Key.Shell, null, null, standout: true);
+            AddDecor(piece, Rotate(arrow, dpad, q), stroke: false);
         }
 
-        var face = new Point(616, 196);
-        const double gap = 54;
-        AddFace(ControlId.Triangle, face.X, face.Y - gap, (x, y) => Inv($"M {x},{y - 9} L {x + 8.5},{y + 5.5} L {x - 8.5},{y + 5.5} Z"));
-        AddFace(ControlId.Circle, face.X + gap, face.Y, (x, y) => Circle(x, y, 8.5));
-        AddFace(ControlId.Cross, face.X, face.Y + gap, (x, y) => Inv($"M {x - 7.5},{y - 7.5} L {x + 7.5},{y + 7.5} M {x + 7.5},{y - 7.5} L {x - 7.5},{y + 7.5}"));
-        AddFace(ControlId.Square, face.X - gap, face.Y, (x, y) => RoundRect(x - 7.5, y - 7.5, 15, 15, 1.5));
+        var face = new Point(CanvasWidth - dpad.X, dpad.Y);
+        const double faceRadius = 21;
+        const double gap = 45;
+        double mark = faceRadius / 23.0;
+        double glyph = 8.5 * mark;
+        double cross = 7.5 * mark;
+        double rise = 9 * mark;
+        double drop = 5.5 * mark;
+        AddFace(ControlId.Triangle, face.X, face.Y - gap, (x, y) => Inv($"M {x},{y - rise} L {x + glyph},{y + drop} L {x - glyph},{y + drop} Z"), faceRadius);
+        AddFace(ControlId.Circle, face.X + gap, face.Y, (x, y) => Circle(x, y, glyph), faceRadius);
+        AddFace(ControlId.Cross, face.X, face.Y + gap, (x, y) => Inv($"M {x - cross},{y - cross} L {x + cross},{y + cross} M {x + cross},{y - cross} L {x - cross},{y + cross}"), faceRadius);
+        AddFace(ControlId.Square, face.X - gap, face.Y, (x, y) => RoundRect(x - cross, y - cross, cross * 2, cross * 2, 1.6), faceRadius);
 
         foreach (var (id, cx) in new[] { (ControlId.L3, 284.0), (ControlId.R3, 516.0) })
         {
@@ -255,13 +367,13 @@ public sealed partial class ControllerDiagram : UserControl
         }
     }
 
-    private void AddFace(ControlId id, double x, double y, Func<double, double, string> symbol)
+    private void AddFace(ControlId id, double x, double y, Func<double, double, string> symbol, double radius)
     {
-        var part = AddPart(id, Circle(x, y, 23), Key.Shell, null, null);
-        AddDecor(part, symbol(x, y), stroke: true, 2.1);
+        var part = AddPart(id, Circle(x, y, radius), Key.Shell, null, null, standout: true);
+        AddDecor(part, symbol(x, y), stroke: true, 2.4);
     }
 
-    private PadPart AddPart(ControlId id, string data, Key key, Point? labelAt, string? label, double labelSize = 11)
+    private PadPart AddPart(ControlId id, string data, Key key, Point? labelAt, string? label, double labelSize = 11, bool standout = false)
     {
         var bounds = Inflate(Bounds(data), 4);
         var root = new Grid
@@ -281,9 +393,21 @@ public sealed partial class ControllerDiagram : UserControl
         {
             Data = Geo(local),
             Fill = Theme.Brush(key switch { Key.Plate => "PlateKeyBrush", Key.Touch => "TouchSurfaceBrush", _ => "PadKeyBrush" }),
-            Stroke = Theme.Brush(key == Key.Plate ? "PlateKeyLineBrush" : "PadKeyLineBrush"),
-            StrokeThickness = 1,
+            Stroke = standout
+                ? new SolidColorBrush(Color.FromArgb(230, 255, 255, 255))
+                : Theme.Brush(key == Key.Plate ? "PlateKeyLineBrush" : "PadKeyLineBrush"),
+            StrokeThickness = standout ? 1.6 : 1,
         };
+        if (standout)
+        {
+            root.Children.Add(new Path
+            {
+                Data = Geo(local),
+                Stroke = new SolidColorBrush(Color.FromArgb(190, 0, 0, 0)),
+                StrokeThickness = 3.2,
+                IsHitTestVisible = false,
+            });
+        }
         var active = new Path { Data = Geo(local), Fill = Theme.Brush("AccentGradientBrush"), Opacity = 0, IsHitTestVisible = false };
         Motion.Fade(active, 110);
         var ring = new Path { Data = Geo(local), Stroke = Theme.Brush("AccentBrush"), StrokeThickness = 2, Opacity = 0, IsHitTestVisible = false };
@@ -418,7 +542,7 @@ public sealed partial class ControllerDiagram : UserControl
     private void BuildTouchLayer(PadPart touchpad)
     {
         var b = touchpad.Bounds;
-        _touchArea = new Rect(272 - b.X, 74 - b.Y, 256, 144);
+        _touchArea = new Rect(278 - b.X, 82 - b.Y, 244, 126);
         var layer = new Canvas { IsHitTestVisible = false };
         int index = touchpad.Root.Children.IndexOf(touchpad.Active) + 1;
         touchpad.Root.Children.Insert(index, layer);
@@ -469,10 +593,7 @@ public sealed partial class ControllerDiagram : UserControl
             return;
         _mode = mode;
         var brush = Theme.Brush(mode == 1 ? "AmberBrush" : "AccentBrush");
-        foreach (var bar in _lightbars)
-            bar.Stroke = mode == 0 ? Theme.Brush("LineBrush") : brush;
-        foreach (var glow in _lightbarGlows)
-            glow.Opacity = mode == 0 ? 0 : 1;
+        PaintLightbars();
         _edge.Stroke = brush;
         _edge.Opacity = mode switch { 2 => 0.55, 1 => 0.4, _ => 0 };
         _edgeGlow.Opacity = mode switch { 2 => 0.5, 1 => 0.3, _ => 0 };
@@ -481,7 +602,23 @@ public sealed partial class ControllerDiagram : UserControl
 
         foreach (var glow in _modeGlows)
             glow.Refresh();
+        PaintLightbars();
     }
+
+    private void PaintLightbars()
+    {
+        Brush brush = _mode == 0 ? Theme.Brush("LineBrush") : new SolidColorBrush(LightColor());
+        foreach (var bar in _lightbars)
+            bar.Stroke = brush;
+        foreach (var host in _lightHosts)
+            host.Opacity = _mode == 0 ? 0 : 1;
+        foreach (var core in _lightCores)
+            core.Opacity = _mode == 0 ? 0 : 1;
+        foreach (var glow in _lightGlows)
+            glow.Refresh();
+    }
+
+    private Color LightColor() => _mode == 1 ? ModeColor() : _layerLight ?? Theme.Accent;
 
     private Color ModeColor() => _mode == 1 ? ((SolidColorBrush)Theme.Brush("AmberBrush")).Color : Theme.Accent;
 
@@ -494,6 +631,9 @@ public sealed partial class ControllerDiagram : UserControl
         _halo.GradientStops.Add(new GradientStop { Offset = 1, Color = Theme.Alpha(accent, 0) });
         foreach (var glow in _modeGlows)
             glow.Refresh();
+        PaintLightbars();
+        if (_shellColor.Length == 0 && _shellImage.Length == 0)
+            _body.Fill = Theme.Brush("PadShellBrush");
     }
 
     private (Grid Root, Path Shape) Layer(string data)
@@ -540,6 +680,67 @@ public sealed partial class ControllerDiagram : UserControl
     }
 
     private static string Shift(string data, double dx, double dy) => Map(data, p => new Point(p.X - dx, p.Y - dy));
+
+    private static string ScalePath(string data, double factor) => Map(data, p => new Point(p.X * factor, p.Y * factor));
+
+    private static string F(Point p) =>
+        p.X.ToString("0.###", CultureInfo.InvariantCulture) + "," + p.Y.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static Point Flip(Point p) => new(CanvasWidth - p.X, p.Y);
+
+    private static string Symmetric(Point start, (Point C1, Point C2, Point End)[] left)
+    {
+        var builder = new StringBuilder("M ").Append(F(start));
+        foreach (var (c1, c2, end) in left)
+            builder.Append(" C ").Append(F(c1)).Append(' ').Append(F(c2)).Append(' ').Append(F(end));
+        for (int i = left.Length - 1; i >= 0; i--)
+        {
+            var from = i == 0 ? start : left[i - 1].End;
+            builder.Append(" C ").Append(F(Flip(left[i].C2))).Append(' ').Append(F(Flip(left[i].C1))).Append(' ').Append(F(Flip(from)));
+        }
+
+        return builder.Append(" Z").ToString();
+    }
+
+    private static (string Data, Point Mid, Point End) Band((Point P0, Point C1, Point C2, Point P3)[] curve, double from, double to, double offset, double half)
+    {
+        const int samples = 64;
+        var outer = new List<Point>(samples + 1);
+        var inner = new List<Point>(samples + 1);
+        Point mid = default, end = default;
+        for (int i = 0; i <= samples; i++)
+        {
+            double u = (1 - Math.Cos(Math.PI * i / samples)) / 2;
+            double s = from + ((to - from) * u);
+            int index = Math.Min((int)s, curve.Length - 1);
+            double t = s - index;
+            var (p0, c1, c2, p3) = curve[index];
+            double a = 1 - t;
+            var p = new Point(
+                (a * a * a * p0.X) + (3 * a * a * t * c1.X) + (3 * a * t * t * c2.X) + (t * t * t * p3.X),
+                (a * a * a * p0.Y) + (3 * a * a * t * c1.Y) + (3 * a * t * t * c2.Y) + (t * t * t * p3.Y));
+            double dx = (a * a * (c1.X - p0.X)) + (2 * a * t * (c2.X - c1.X)) + (t * t * (p3.X - c2.X));
+            double dy = (a * a * (c1.Y - p0.Y)) + (2 * a * t * (c2.Y - c1.Y)) + (t * t * (p3.Y - c2.Y));
+            double length = Math.Sqrt((dx * dx) + (dy * dy));
+            double nx = -dy / length;
+            double ny = dx / length;
+            double width = half * Math.Pow(1 - Math.Pow(Math.Abs((2 * u) - 1), 4), 0.25);
+            outer.Add(new Point(p.X + (nx * (offset + width)), p.Y + (ny * (offset + width))));
+            inner.Add(new Point(p.X + (nx * (offset - width)), p.Y + (ny * (offset - width))));
+            var center = new Point(p.X + (nx * offset), p.Y + (ny * offset));
+            if (i == samples / 2)
+                mid = center;
+            if (i == samples)
+                end = center;
+        }
+
+        var builder = new StringBuilder("M ").Append(F(outer[0]));
+        for (int i = 1; i < outer.Count; i++)
+            builder.Append(" L ").Append(F(outer[i]));
+        for (int i = inner.Count - 1; i >= 0; i--)
+            builder.Append(" L ").Append(F(inner[i]));
+        return (builder.Append(" Z").ToString(), mid, end);
+    }
 
     private static string Mirror(string data) => Map(data, p => new Point(CanvasWidth - p.X, p.Y));
 

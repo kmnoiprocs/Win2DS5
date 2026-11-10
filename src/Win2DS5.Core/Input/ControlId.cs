@@ -30,14 +30,14 @@ public static class ControlNames
 {
     public static string Display(ControlId id) => id switch
     {
-        ControlId.DPadUp => "D-pad up",
-        ControlId.DPadDown => "D-pad down",
-        ControlId.DPadLeft => "D-pad left",
-        ControlId.DPadRight => "D-pad right",
-        ControlId.L2Full => "L2 full press",
-        ControlId.R2Full => "R2 full press",
+        ControlId.DPadUp => "D-Pad Up",
+        ControlId.DPadDown => "D-Pad Down",
+        ControlId.DPadLeft => "D-Pad Left",
+        ControlId.DPadRight => "D-Pad Right",
+        ControlId.L2Full => "L2 Full Press",
+        ControlId.R2Full => "R2 Full Press",
         ControlId.Ps => "PS",
-        ControlId.TouchpadClick => "Touchpad click",
+        ControlId.TouchpadClick => "Touchpad Click",
         _ => id.ToString(),
     };
 
@@ -45,11 +45,11 @@ public static class ControlNames
     {
         ControlId.Create => "Share",
         ControlId.Ps => "PS",
-        ControlId.TouchpadClick => "Touchpad click",
-        ControlId.DPadUp => "D-pad up",
-        ControlId.DPadDown => "D-pad down",
-        ControlId.DPadLeft => "D-pad left",
-        ControlId.DPadRight => "D-pad right",
+        ControlId.TouchpadClick => "Touchpad Click",
+        ControlId.DPadUp => "D-Pad Up",
+        ControlId.DPadDown => "D-Pad Down",
+        ControlId.DPadLeft => "D-Pad Left",
+        ControlId.DPadRight => "D-Pad Right",
         _ => Display(id),
     };
 

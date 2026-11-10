@@ -9,6 +9,8 @@ public sealed partial class TouchpadPage : UserControl
 {
     private readonly DesktopRuntime _runtime = App.Runtime;
     private bool _loading = true;
+    private string _profileId = "";
+    private string _stamp = "";
 
     public TouchpadPage()
     {
@@ -43,7 +45,7 @@ public sealed partial class TouchpadPage : UserControl
             if (_loading) return;
             _runtime.Update(() =>
             {
-                var touch = _runtime.Document.Active.Touchpad;
+                var touch = _runtime.Editing.Touchpad;
                 touch.TopFraction = top;
                 touch.LeftFraction = left;
                 touch.RightFraction = right;
@@ -54,7 +56,7 @@ public sealed partial class TouchpadPage : UserControl
         Curve.ExponentChanged += value =>
         {
             if (_loading) return;
-            _runtime.Update(() => _runtime.Document.Active.Touchpad.Curve = value);
+            _runtime.Update(() => _runtime.Editing.Touchpad.Curve = value);
             _runtime.Save();
         };
         GestureEditor.BindingChanged += binding =>
@@ -62,7 +64,7 @@ public sealed partial class TouchpadPage : UserControl
             if (_loading) return;
             var zone = (TouchZone)ZoneBox.SelectedIndex;
             var kind = (GestureKind)GestureBox.SelectedIndex;
-            _runtime.Update(() => _runtime.Document.Active.Touchpad.SetGesture(zone, kind, binding), true);
+            _runtime.Update(() => _runtime.Editing.Touchpad.SetGesture(zone, kind, binding), true);
             _runtime.Save();
         };
         Loaded += (_, _) =>
@@ -72,13 +74,25 @@ public sealed partial class TouchpadPage : UserControl
         };
     }
 
-    public void Apply(RuntimeSnapshot snapshot) =>
+    public void Apply(RuntimeSnapshot snapshot)
+    {
+        var profile = _runtime.Editing;
+        string stamp = profile.Id + "|" + profile.LeftStick.Mode + profile.LeftStick.OutputId + profile.LeftStick.Sensitivity
+            + profile.RightStick.Mode + profile.RightStick.OutputId + profile.Touchpad.Mode + profile.Touchpad.Sensitivity;
+        if (stamp != _stamp)
+            LoadFromProfile();
         Zones.SetFinger(snapshot.TouchActive, snapshot.TouchX, snapshot.TouchY);
+    }
+
+    public void ReloadMaps() => LoadFromProfile();
 
     private void LoadFromProfile()
     {
         _loading = true;
-        var profile = _runtime.Document.Active;
+        var profile = _runtime.Editing;
+        _profileId = profile.Id;
+        _stamp = profile.Id + "|" + profile.LeftStick.Mode + profile.LeftStick.OutputId + profile.LeftStick.Sensitivity
+            + profile.RightStick.Mode + profile.RightStick.OutputId + profile.Touchpad.Mode + profile.Touchpad.Sensitivity;
         var touch = profile.Touchpad;
         ModeBox.SelectedIndex = (int)touch.Mode;
         Sensitivity.Value = touch.Mode == TouchpadMode.Stick ? touch.StickSensitivity / 1000.0 : touch.Sensitivity;
@@ -87,10 +101,12 @@ public sealed partial class TouchpadPage : UserControl
         EdgeScroll.IsChecked = touch.EdgeScroll;
         LongPress.Value = touch.LongPressMs;
         Zones.SetFractions(touch.TopFraction, touch.LeftFraction, touch.RightFraction);
+        FillOutputs(LeftOutput, profile.LeftStick.OutputId);
         LeftMode.SelectedIndex = (int)profile.LeftStick.Mode;
         LeftSensitivity.Value = profile.LeftStick.Sensitivity;
         LeftDeadzone.Value = profile.LeftStick.Deadzone;
         LeftCurve.Value = profile.LeftStick.Curve;
+        FillOutputs(RightOutput, profile.RightStick.OutputId);
         RightMode.SelectedIndex = (int)profile.RightStick.Mode;
         RightSensitivity.Value = profile.RightStick.Sensitivity;
         RightDeadzone.Value = profile.RightStick.Deadzone;
@@ -115,7 +131,7 @@ public sealed partial class TouchpadPage : UserControl
             return;
         _runtime.Update(() =>
         {
-            var profile = _runtime.Document.Active;
+            var profile = _runtime.Editing;
             var touch = profile.Touchpad;
             touch.Mode = (TouchpadMode)ModeBox.SelectedIndex;
             if (touch.Mode == TouchpadMode.Stick)
@@ -129,10 +145,14 @@ public sealed partial class TouchpadPage : UserControl
             profile.LeftStick.Sensitivity = LeftSensitivity.Value;
             profile.LeftStick.Deadzone = LeftDeadzone.Value;
             profile.LeftStick.Curve = LeftCurve.Value;
+            profile.LeftStick.OutputId = OutputAt(LeftOutput, profile.LeftStick.OutputId);
+            OutputCatalog.Remember(profile.LeftStick, _runtime.Document.Outputs);
             profile.RightStick.Mode = (StickMode)RightMode.SelectedIndex;
             profile.RightStick.Sensitivity = RightSensitivity.Value;
             profile.RightStick.Deadzone = RightDeadzone.Value;
             profile.RightStick.Curve = RightCurve.Value;
+            profile.RightStick.OutputId = OutputAt(RightOutput, profile.RightStick.OutputId);
+            OutputCatalog.Remember(profile.RightStick, _runtime.Document.Outputs);
             profile.Gyro.Enabled = GyroEnabled.IsChecked == true;
             profile.Gyro.Sensitivity = GyroSensitivity.Value;
             profile.Gyro.InvertX = InvertX.IsChecked == true;
@@ -143,6 +163,23 @@ public sealed partial class TouchpadPage : UserControl
         });
         UpdateLabels();
         _runtime.Save();
+    }
+
+    private void FillOutputs(ComboBox box, string selected)
+    {
+        box.Items.Clear();
+        foreach (var output in _runtime.Document.Outputs)
+            box.Items.Add(output.Name);
+        int index = _runtime.Document.Outputs.FindIndex(output => output.Id == selected);
+        box.SelectedIndex = index;
+    }
+
+    private string OutputAt(ComboBox box, string current)
+    {
+        int index = box.SelectedIndex;
+        if (index < 0 || index >= _runtime.Document.Outputs.Count)
+            return current;
+        return _runtime.Document.Outputs[index].Id;
     }
 
     private void OnGestureTargetChanged(object sender, SelectionChangedEventArgs e)
@@ -158,13 +195,13 @@ public sealed partial class TouchpadPage : UserControl
             return;
         var zone = (TouchZone)ZoneBox.SelectedIndex;
         var kind = (GestureKind)GestureBox.SelectedIndex;
-        var binding = _runtime.Document.Active.Touchpad.GetGesture(zone, kind);
-        GestureEditor.Show($"{zone} {kind}", "A drag never fires a zone. Tap and long-press do.", binding, _runtime.Document.Active.Layers, false, false, false);
+        var binding = _runtime.Editing.Touchpad.GetGesture(zone, kind);
+        GestureEditor.Show($"{zone} {kind}", "A drag never fires a zone. Tap and long-press do.", binding, _runtime.Editing.Layers, false, false, false, _runtime.Document.Outputs);
     }
 
     private void UpdateLabels()
     {
-        var profile = _runtime.Document.Active;
+        var profile = _runtime.Editing;
         var touch = profile.Touchpad;
         SensitivityLabel.Text = touch.Mode == TouchpadMode.Stick ? "Stick speed" : "Trackpad sensitivity";
         SensitivityValue.Text = touch.Mode == TouchpadMode.Stick ? $"{touch.StickSensitivity:0}" : $"{touch.Sensitivity:0.00}×";
@@ -176,5 +213,13 @@ public sealed partial class TouchpadPage : UserControl
         RightDeadzoneValue.Text = $"{profile.RightStick.Deadzone * 100:0}%";
         RightCurveValue.Text = $"{profile.RightStick.Curve:0.00}";
         GyroSensitivityValue.Text = $"{profile.Gyro.Sensitivity:0}";
+        ShowStickWarning(LeftStickWarning, ConfigWarnings.ForStick(_runtime.Document, profile.LeftStick));
+        ShowStickWarning(RightStickWarning, ConfigWarnings.ForStick(_runtime.Document, profile.RightStick));
+    }
+
+    private static void ShowStickWarning(TextBlock block, string? warning)
+    {
+        block.Text = warning ?? "";
+        block.Visibility = string.IsNullOrEmpty(warning) ? Visibility.Collapsed : Visibility.Visible;
     }
 }

@@ -75,6 +75,10 @@
                 <GradientStop Offset="0" Color="#2C7EB6FF" />
                 <GradientStop Offset="0.6" Color="#007EB6FF" />
             </LinearGradientBrush>
+            <LinearGradientBrush x:Key="ButtonGlowBrush" StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Offset="0" Color="#557EB6FF" />
+                <GradientStop Offset="1" Color="#007EB6FF" />
+            </LinearGradientBrush>
             <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="0,1">
                 <GradientStop Offset="0" Color="#98C6FF" />
                 <GradientStop Offset="1" Color="#74A8EB" />
@@ -159,18 +163,22 @@
                                         <VisualState x:Name="Normal" />
                                         <VisualState x:Name="PointerOver">
                                             <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity" To="0.75" Duration="0" />
-                                                <DoubleAnimation Storyboard.TargetName="Edge" Storyboard.TargetProperty="Opacity" To="0.6" Duration="0" />
-                                                <DoubleAnimation Storyboard.TargetName="Sheen" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                                <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Edge" Storyboard.TargetProperty="Opacity" To="0.7" Duration="0:0:0.18" />
+                                                <DoubleAnimation Storyboard.TargetName="Sheen" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18" />
                                             </Storyboard>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                                                <DoubleAnimation Storyboard.TargetName="Edge" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                                                <DoubleAnimation Storyboard.TargetName="Sheen" Storyboard.TargetProperty="Opacity" To="0.5" Duration="0" />
-                                                <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="0.96" Duration="0" />
-                                                <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="0.96" Duration="0" />
+                                                <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity" To="0.65" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Edge" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Sheen" Storyboard.TargetProperty="Opacity" To="0.45" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="0.98" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="0.98" Duration="0:0:0.08" />
                                             </Storyboard>
                                         </VisualState>
                                         <VisualState x:Name="Disabled">
@@ -180,13 +188,13 @@
                                         </VisualState>
                                     </VisualStateGroup>
                                 </VisualStateManager.VisualStateGroups>
-                                <Border x:Name="Halo" Margin="-4" Opacity="0" BorderThickness="4"
-                                        BorderBrush="{StaticResource AccentSoftBrush}"
-                                        CornerRadius="13" />
                                 <Border x:Name="Body"
                                         Background="{TemplateBinding Background}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
                                         BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="{TemplateBinding CornerRadius}" />
+                                <Border x:Name="Halo" Opacity="0" IsHitTestVisible="False"
+                                        Background="{StaticResource ButtonGlowBrush}"
                                         CornerRadius="{TemplateBinding CornerRadius}" />
                                 <Border x:Name="Sheen" Opacity="0" Background="{StaticResource HoverBrush}"
                                         CornerRadius="{TemplateBinding CornerRadius}" />
@@ -195,14 +203,68 @@
                                         CornerRadius="{TemplateBinding CornerRadius}" />
                                 <ContentPresenter x:Name="ContentPresenter"
                                                   Margin="{TemplateBinding Padding}"
-                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Stretch"
+                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                                   Content="{TemplateBinding Content}"
                                                   ContentTemplate="{TemplateBinding ContentTemplate}"
                                                   Foreground="{TemplateBinding Foreground}"
                                                   FontFamily="{TemplateBinding FontFamily}"
                                                   FontSize="{TemplateBinding FontSize}"
                                                   FontWeight="{TemplateBinding FontWeight}" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="TabSegmentStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="16,7" />
+                <Setter Property="CornerRadius" Value="9" />
+                <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="UseSystemFocusVisuals" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualStateGroup.Transitions>
+                                            <VisualTransition GeneratedDuration="0:0:0.16" />
+                                        </VisualStateGroup.Transitions>
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Wash" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.16">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Wash" Storyboard.TargetProperty="Opacity" To="0.7" Duration="0:0:0.08" />
+                                            </Storyboard>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" />
+                                <Border x:Name="Wash" Opacity="0" Background="{StaticResource ButtonGlowBrush}" CornerRadius="{TemplateBinding CornerRadius}" IsHitTestVisible="False" />
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Content="{TemplateBinding Content}"
+                                                  Foreground="{TemplateBinding Foreground}"
+                                                  FontFamily="{TemplateBinding FontFamily}"
+                                                  FontSize="{TemplateBinding FontSize}" />
                             </Grid>
                         </ControlTemplate>
                     </Setter.Value>

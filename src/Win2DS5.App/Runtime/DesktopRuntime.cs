@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Win2DS5.App.Overlay;
+using Win2DS5.App.Theming;
 using Win2DS5.Core;
 using Win2DS5.DualSense;
 using Win2DS5.Platform;
@@ -15,6 +16,10 @@ public sealed class RuntimeSnapshot
     public bool HidHideInstalled { get; init; }
     public bool KeyboardOpen { get; init; }
     public string LayerName { get; init; } = "Base";
+    public string ActiveLayerId { get; init; } = "";
+    public string Light { get; init; } = "";
+    public string ShellColor { get; init; } = "";
+    public string ShellImage { get; init; } = "";
     public int BatteryPercent { get; init; }
     public bool Charging { get; init; }
     public string Status { get; init; } = "Connect a DualSense.";
@@ -77,6 +82,9 @@ public sealed class DesktopRuntime : IDisposable
     private readonly HidHideClient _hide = new();
     private readonly List<string> _lastIds = [];
     private DualSenseConnection? _device;
+    private readonly List<ExtraInput> _extras = [];
+    private readonly Dictionary<string, AppliedMap> _applied = new(StringComparer.OrdinalIgnoreCase);
+    private long _nextExtraScan;
     private Thread? _thread;
     private volatile bool _stop;
     private bool _cloakApplied;
@@ -95,7 +103,13 @@ public sealed class DesktopRuntime : IDisposable
     private long _nextGateCheck;
     private RuntimeSnapshot _snapshot = new();
     private bool _hidHideInstalled;
-    private volatile int _lightbar = 0x7EB6FF;
+    private List<ConfigWarning> _warnings = [];
+    private List<string> _connectedKeys = [];
+    private long _nextWarningScan;
+    private volatile int _accentLight = 0x7EB6FF;
+    private int _sentLight = -1;
+    private string _liveLayerId = "";
+    private volatile bool _forceLight;
 
     public DesktopRuntime(ProfileDocument document, string path)
     {
@@ -106,6 +120,7 @@ public sealed class DesktopRuntime : IDisposable
             DesktopEnabled = document.Settings.DesktopEnabled,
         };
         _session.Keyboard.ApplySettings(document.Settings);
+        UseProfile(_session, document.Settings.SelectedInputKey);
         var folder = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(folder))
             _session.Keyboard.AttachMemory(Path.Combine(folder, "words.json"));
@@ -115,16 +130,164 @@ public sealed class DesktopRuntime : IDisposable
             _hide.RecoverStale();
         else
             _notice = "HidHide is not installed. Games can also see the controller until it is.";
+        RefreshWarnings(false);
+    }
+
+    public string? FirstWarning
+    {
+        get
+        {
+            var warnings = _warnings;
+            return warnings.Count == 0 ? null : warnings[0].Message;
+        }
+    }
+
+    public IReadOnlyList<ConfigWarning> Warnings => _warnings;
+
+    public IReadOnlyList<string> ConnectedKeys => _connectedKeys;
+
+    public void RefreshWarnings(bool toast)
+    {
+        long now = Environment.TickCount64;
+        if (!toast && now < _nextWarningScan)
+            return;
+        _nextWarningScan = now + 700;
+        try
+        {
+            _connectedKeys = DualSenseConnection.List().Select(item => item.Path).ToList();
+        }
+        catch (Exception)
+        {
+            _connectedKeys = [];
+        }
+
+        var current = ConfigWarnings.Collect(Document, _connectedKeys).ToList();
+        if (toast)
+        {
+            foreach (var warning in current)
+            {
+                if (_warnings.All(existing => existing.Message != warning.Message))
+                    Toast(warning.Message);
+            }
+        }
+
+        _warnings = current;
     }
 
     public ProfileDocument Document { get; }
     public MappingSession Session => _session;
+
+    public string ActiveInputKey =>
+        string.IsNullOrEmpty(Document.Settings.SelectedInputKey)
+            ? _device?.DevicePath ?? ""
+            : Document.Settings.SelectedInputKey;
+
+    public Profile Editing =>
+        string.IsNullOrEmpty(ActiveInputKey) ? Document.Active : Document.ProfileFor(ActiveInputKey);
+
+    public void AssignToActive(string profileId)
+    {
+        var key = ActiveInputKey;
+        List<OutputCommand>? released = null;
+        lock (_gate)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                Document.ActiveId = profileId;
+            }
+            else
+            {
+                released = _session.ReleaseAll();
+                Document.Assign(key, profileId);
+                UseProfile(_session, key);
+                foreach (var extra in _extras)
+                {
+                    if (!string.Equals(extra.Device.DevicePath, key, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    released.AddRange(extra.Session.ReleaseAll());
+                    UseProfile(extra.Session, key);
+                }
+            }
+        }
+
+        if (released != null)
+            Emit(released);
+        Save();
+    }
+
+    public string InputLabel
+    {
+        get
+        {
+            var key = ActiveInputKey;
+            var match = DualSenseConnection.List().FirstOrDefault(item => item.Path == key);
+            return string.IsNullOrEmpty(match.Path) ? "DualSense" : match.Name;
+        }
+    }
+
+    public void SelectInput(string devicePath)
+    {
+        if (string.IsNullOrWhiteSpace(devicePath))
+            return;
+        List<OutputCommand>? released = null;
+        lock (_gate)
+        {
+            Document.Settings.SelectedInputKey = devicePath;
+            CloseExtra(devicePath);
+            if (_device != null && !string.Equals(_device.DevicePath, devicePath, StringComparison.OrdinalIgnoreCase))
+            {
+                _device.Dispose();
+                _device = null;
+            }
+
+            released = _session.ReleaseAll();
+            UseProfile(_session, devicePath);
+        }
+
+        if (released != null)
+            Emit(released);
+        Save();
+    }
+
+    public void AddOutput(OutputDeviceKind kind)
+    {
+        bool added = false;
+        Update(() => added = OutputCatalog.TryAdd(Document.Outputs, kind));
+        if (added)
+            Save();
+    }
+
+    public void RemoveOutput(string id)
+    {
+        List<OutputCommand>? released = null;
+        lock (_gate)
+        {
+            var output = Document.Outputs.FirstOrDefault(item => item.Id == id);
+            if (output == null)
+                return;
+            released = _session.ReleaseOutput(output);
+            foreach (var extra in _extras)
+                released.AddRange(extra.Session.ReleaseOutput(output));
+        }
+
+        if (released != null)
+            Emit(released);
+        Update(() => Document.Outputs.RemoveAll(item => item.Id == id));
+        Save();
+    }
     public event Action<string>? ToastRequested;
 
     public void SetLightbar(byte r, byte g, byte b)
     {
-        _lightbar = (r << 16) | (g << 8) | b;
+        _accentLight = (r << 16) | (g << 8) | b;
+        RefreshLights();
+    }
+
+    public void RefreshLights()
+    {
         _nextLightbar = 0;
+        _sentLight = -1;
+        _forceLight = true;
     }
 
     public void Start()
@@ -152,7 +315,7 @@ public sealed class DesktopRuntime : IDisposable
             if (releaseInputs)
                 released = _session.ReleaseAll();
             action();
-            _session.Profile = Document.Active;
+            UseProfile(_session, ActiveInputKey);
         }
 
         if (released != null)
@@ -163,6 +326,59 @@ public sealed class DesktopRuntime : IDisposable
     {
         lock (_gate)
             ProfileStore.Save(_path, Document);
+        RefreshWarnings(true);
+    }
+
+    public bool ApplyControllerMap(InputLayout layout, string profileId)
+    {
+        List<OutputCommand>? released = null;
+        lock (_gate)
+        {
+            string key = ActiveInputKey;
+            if (string.IsNullOrEmpty(key))
+                key = _device?.DevicePath ?? "";
+            if (key.Length == 0)
+                return false;
+            _applied[key] = new AppliedMap(profileId, layout);
+            var session = SessionFor(key);
+            if (session != null)
+            {
+                released = session.ReleaseAll();
+                session.Profile = Document.ProfileFor(key);
+                session.Layout = layout;
+            }
+        }
+
+        if (released != null)
+            Emit(released);
+        return true;
+    }
+
+    public void SaveLayerBindings(string layerId, Layer draft)
+    {
+        List<OutputCommand>? released = null;
+        lock (_gate)
+        {
+            var shared = Editing.GetLayer(layerId);
+            if (shared == null)
+                return;
+            released = _session.ReleaseAll();
+            foreach (var extra in _extras)
+                released.AddRange(extra.Session.ReleaseAll());
+            shared.ReplaceBindings(draft);
+            string profileId = Editing.Id;
+            foreach (var applied in _applied.Values)
+            {
+                if (applied.ProfileId != profileId)
+                    continue;
+                applied.Layout.GetLayer(layerId)?.ReplaceBindings(draft);
+            }
+
+            UseProfile(_session, ActiveInputKey);
+        }
+
+        if (released != null)
+            Emit(released);
     }
 
     public void ToggleDesktop()
@@ -269,6 +485,7 @@ public sealed class DesktopRuntime : IDisposable
         _stop = true;
         try
         {
+            CloseExtras();
             _device?.Dispose();
         }
         catch
@@ -329,20 +546,72 @@ public sealed class DesktopRuntime : IDisposable
 
         MappingResult result;
         bool desktop;
+        bool profileChanged = false;
+        List<OutputCommand>? releasedPause = null;
+        var extraLights = new List<(DualSenseConnection Device, int Rgb)>();
         lock (_gate)
         {
             _session.LongPressMs = Document.Settings.LongPressMs;
             FitKeyboardTravel();
             result = _session.Step(frame, now);
+            _liveLayerId = result.ActiveLayerId;
+            profileChanged |= ApplyProfileSwitch(_device.DevicePath, result.SwitchProfileId, _session);
+            bool refreshExtras = _forceLight;
+            _forceLight = false;
+            foreach (var extra in _extras)
+            {
+                if (extra.Device.Disconnected || !extra.Device.TryRead(out var extraFrame))
+                    continue;
+                UseProfile(extra.Session, extra.Device.DevicePath);
+                extra.Session.DesktopEnabled = _session.DesktopEnabled;
+                extra.Session.Passthrough = _session.Passthrough;
+                extra.Session.LongPressMs = Document.Settings.LongPressMs;
+                var extraResult = extra.Session.Step(extraFrame, now);
+                profileChanged |= ApplyProfileSwitch(extra.Device.DevicePath, extraResult.SwitchProfileId, extra.Session);
+                if (extraResult.ToggleDesktop)
+                    result.ToggleDesktop = true;
+                if (extraResult.ToggleKeyboard)
+                    result.ToggleKeyboard = true;
+                if (extraResult.Pause)
+                    result.Pause = true;
+                result.Commands.AddRange(extraResult.Commands);
+                if (_session.DesktopEnabled && (refreshExtras || extraResult.ActiveLayerId != extra.LightLayer))
+                {
+                    extra.LightLayer = extraResult.ActiveLayerId;
+                    extraLights.Add((extra.Device, LightRgb(extraResult.ActiveLayerId)));
+                }
+            }
+
             desktop = _session.DesktopEnabled;
+            if (result.Pause)
+            {
+                _session.Passthrough = !_session.Passthrough;
+                foreach (var extra in _extras)
+                    extra.Session.Passthrough = _session.Passthrough;
+                if (_session.Passthrough)
+                {
+                    releasedPause = _session.ReleaseAll();
+                    foreach (var extra in _extras)
+                        releasedPause.AddRange(extra.Session.ReleaseAll());
+                }
+            }
         }
 
-        MaintainVirtualPad(desktop);
+        if (releasedPause != null)
+            Emit(releasedPause);
+        foreach (var (device, rgb) in extraLights)
+            device.SetDesktopFeedback((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 0, 0);
+        if (profileChanged)
+            Save();
+        if (!string.IsNullOrEmpty(result.SystemAction))
+            RunSystem(result);
+
+        MaintainVirtualPad(desktop && !_session.Passthrough);
         if (result.ToggleDesktop)
             ToggleDesktop();
         else if (result.ToggleKeyboard)
             ToggleKeyboard();
-        else if (desktop)
+        else if (desktop && !_session.Passthrough)
             Emit(result.Commands);
 
         if (desktop)
@@ -372,13 +641,77 @@ public sealed class DesktopRuntime : IDisposable
                     ApplyCloak();
             }
 
+            SyncExtras();
             return;
         }
 
         DropDevice();
-        _device = DualSenseConnection.TryOpen();
+        var preferred = Document.Settings.SelectedInputKey;
+        _device = string.IsNullOrWhiteSpace(preferred)
+            ? DualSenseConnection.TryOpen()
+            : DualSenseConnection.TryOpen(preferred) ?? DualSenseConnection.TryOpen();
         if (_device != null)
+        {
+            if (string.IsNullOrWhiteSpace(Document.Settings.SelectedInputKey))
+                Document.Settings.SelectedInputKey = _device.DevicePath;
+            UseProfile(_session, _device.DevicePath);
             _status = _device.IsBluetooth ? "DualSense connected over Bluetooth." : "DualSense connected over USB.";
+            SyncExtras();
+        }
+    }
+
+    private void SyncExtras()
+    {
+        if (_device == null || Environment.TickCount64 < _nextExtraScan)
+            return;
+        _nextExtraScan = Environment.TickCount64 + 700;
+        var paths = DualSenseConnection.List()
+            .Select(item => item.Path)
+            .Where(path => path.Length > 0 && !string.Equals(path, _device.DevicePath, StringComparison.OrdinalIgnoreCase))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (int i = _extras.Count - 1; i >= 0; i--)
+        {
+            if (_extras[i].Device.Disconnected || !paths.Contains(_extras[i].Device.DevicePath))
+            {
+                _extras[i].Device.Dispose();
+                _extras.RemoveAt(i);
+            }
+            else
+            {
+                paths.Remove(_extras[i].Device.DevicePath);
+            }
+        }
+
+        foreach (var path in paths)
+        {
+            var opened = DualSenseConnection.TryOpen(path);
+            if (opened == null)
+                continue;
+            opened.SetReadTimeout(5);
+            var extraSession = new MappingSession(Document.ProfileFor(path))
+            {
+                DesktopEnabled = _session.DesktopEnabled,
+            };
+            _extras.Add(new ExtraInput(opened, extraSession));
+        }
+    }
+
+    private void CloseExtra(string path)
+    {
+        for (int i = _extras.Count - 1; i >= 0; i--)
+        {
+            if (!string.Equals(_extras[i].Device.DevicePath, path, StringComparison.OrdinalIgnoreCase))
+                continue;
+            _extras[i].Device.Dispose();
+            _extras.RemoveAt(i);
+        }
+    }
+
+    private void CloseExtras()
+    {
+        foreach (var extra in _extras)
+            extra.Device.Dispose();
+        _extras.Clear();
     }
 
     private void ApplyCloak()
@@ -419,6 +752,7 @@ public sealed class DesktopRuntime : IDisposable
             return;
         }
 
+        CloseExtras();
         _device?.Dispose();
         _device = null;
         if (!DeviceCycler.TryCycle(ids, out var cycleError, out _) && !string.IsNullOrEmpty(cycleError))
@@ -441,6 +775,7 @@ public sealed class DesktopRuntime : IDisposable
     {
         try
         {
+            CloseExtras();
             _device?.Dispose();
         }
         catch
@@ -526,13 +861,73 @@ public sealed class DesktopRuntime : IDisposable
 
     private void Emit(IReadOnlyList<OutputCommand> commands)
     {
-        _emitter.Apply(commands);
-        _pad.Apply(commands);
+        var filtered = FilterOutputs(commands);
+        _emitter.Apply(filtered);
+        _pad.Apply(filtered);
+    }
+
+    private List<OutputCommand> FilterOutputs(IReadOnlyList<OutputCommand> commands)
+    {
+        var outputs = Document.Outputs;
+        if (outputs.Count == 0)
+            return commands.ToList();
+        bool mouse = outputs.Any(output => output.Kind == OutputDeviceKind.Mouse);
+        bool keyboard = outputs.Any(output => output.Kind == OutputDeviceKind.Keyboard);
+        var filtered = new List<OutputCommand>(commands.Count);
+        foreach (var command in commands)
+        {
+            bool allowed = command.Kind switch
+            {
+                OutputKind.KeyDown or OutputKind.KeyUp => keyboard && Targets(command, outputs),
+                OutputKind.MouseDown or OutputKind.MouseUp or OutputKind.MouseMove or OutputKind.Scroll => mouse && Targets(command, outputs),
+                OutputKind.PadDown or OutputKind.PadUp or OutputKind.LeftStick or OutputKind.RightStick => OutputCatalog.PadTarget(command, outputs) != null,
+                _ => false,
+            };
+            if (allowed)
+                filtered.Add(command);
+        }
+
+        return filtered;
+    }
+
+    private static bool Targets(OutputCommand command, IReadOnlyList<OutputDevice> outputs) =>
+        string.IsNullOrEmpty(command.OutputId) || outputs.Any(output => output.Id == command.OutputId);
+
+    private static void RunSystem(MappingResult result)
+    {
+        try
+        {
+            if (result.Volume >= 0)
+            {
+                SystemVolume.SetPercent(result.Volume);
+                return;
+            }
+
+            switch (result.SystemAction)
+            {
+                case "windows.open" when result.SystemPath.Length > 0:
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(result.SystemPath) { UseShellExecute = true });
+                    break;
+                case "windows.sleep":
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("rundll32.exe", "powrprof.dll,SetSuspendState 0,1,0") { CreateNoWindow = true, UseShellExecute = false });
+                    break;
+                case "windows.restart":
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("shutdown", "/r /t 0") { CreateNoWindow = true, UseShellExecute = false });
+                    break;
+                case "windows.shutdown":
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("shutdown", "/s /t 0") { CreateNoWindow = true, UseShellExecute = false });
+                    break;
+            }
+        }
+        catch (Exception)
+        {
+            // The command could not be started.
+        }
     }
 
     private void MaintainVirtualPad(bool desktop)
     {
-        _padNeeded = desktop && ProfileUsesPad();
+        _padNeeded = desktop && Document.Outputs.Any(output => output.Kind is OutputDeviceKind.Xbox or OutputDeviceKind.DualShock4);
         if (!_padNeeded)
         {
             _pad.Disconnect();
@@ -542,7 +937,7 @@ public sealed class DesktopRuntime : IDisposable
             return;
         }
 
-        _pad.EnsureConnected();
+        _pad.Sync(Document.Outputs);
         _padReady = _pad.IsAvailable;
         if (!_padReady)
         {
@@ -555,36 +950,66 @@ public sealed class DesktopRuntime : IDisposable
         }
     }
 
-    private bool ProfileUsesPad()
+    private void UseProfile(MappingSession session, string deviceKey)
     {
-        var profile = _session.Profile;
-        if (profile.LeftStick.Mode == StickMode.Gamepad || profile.RightStick.Mode == StickMode.Gamepad)
-            return true;
-        foreach (var layer in profile.Layers)
+        session.Profile = Document.ProfileFor(deviceKey);
+        if (!string.IsNullOrEmpty(deviceKey)
+            && _applied.TryGetValue(deviceKey, out var applied)
+            && applied.ProfileId == session.Profile.Id)
         {
-            foreach (var binding in layer.Bindings.Values)
-            {
-                if (ContainsPad(binding))
-                    return true;
-            }
+            session.Layout = applied.Layout;
+            return;
         }
 
-        foreach (var gesture in profile.Touchpad.Gestures.Values)
-        {
-            if (ContainsPad(gesture))
-                return true;
-        }
-
-        return false;
+        _applied.Remove(deviceKey);
+        session.Layout = null;
     }
 
-    private static bool ContainsPad(Binding? binding)
+    private MappingSession? SessionFor(string deviceKey)
     {
-        if (binding == null)
+        if (_device != null && string.Equals(_device.DevicePath, deviceKey, StringComparison.OrdinalIgnoreCase))
+            return _session;
+        return _extras.FirstOrDefault(item => string.Equals(item.Device.DevicePath, deviceKey, StringComparison.OrdinalIgnoreCase))?.Session;
+    }
+
+    private sealed class AppliedMap(string profileId, InputLayout layout)
+    {
+        public string ProfileId { get; } = profileId;
+        public InputLayout Layout { get; } = layout;
+    }
+
+    private bool ApplyProfileSwitch(string deviceKey, string profileId, MappingSession session)
+    {
+        if (string.IsNullOrEmpty(profileId) || string.IsNullOrEmpty(deviceKey))
             return false;
-        if (binding.Kind == BindingKind.Pad)
-            return true;
-        return ContainsPad(binding.Tap);
+        if (Document.Profiles.All(profile => profile.Id != profileId))
+            return false;
+        Emit(session.ReleaseAll());
+        Document.Assign(deviceKey, profileId);
+        UseProfile(session, deviceKey);
+        return true;
+    }
+
+    private int LightRgb(string layerId)
+    {
+        if (Theme.TryHex(LightHex(layerId), out var color))
+            return (color.R << 16) | (color.G << 8) | color.B;
+        return _accentLight;
+    }
+
+    private string LightHex(string layerId)
+    {
+        var layer = Document.LayerLibrary.FirstOrDefault(item => item.Id == layerId)
+            ?? _session.Profile.GetLayer(layerId)
+            ?? _session.Profile.BaseLayer;
+        return layer.Light ?? "";
+    }
+
+    private sealed class ExtraInput(DualSenseConnection device, MappingSession session)
+    {
+        public DualSenseConnection Device { get; } = device;
+        public MappingSession Session { get; } = session;
+        public string LightLayer { get; set; } = "";
     }
 
     private void MaintainFeedback()
@@ -592,18 +1017,21 @@ public sealed class DesktopRuntime : IDisposable
         if (_device == null || !_session.DesktopEnabled)
             return;
         long now = Environment.TickCount64;
-        int light = _lightbar;
+        int light = LightRgb(_liveLayerId);
+        bool changed = light != _sentLight;
         byte r = (byte)(light >> 16), g = (byte)(light >> 8), b = (byte)light;
         if (_hapticOn && now >= _hapticUntil)
         {
             _hapticOn = false;
+            _sentLight = light;
             _device.SetDesktopFeedback(r, g, b, 0, 0);
             _nextLightbar = now + 2000;
             return;
         }
 
-        if (now < _nextLightbar)
+        if (!changed && now < _nextLightbar)
             return;
+        _sentLight = light;
         _nextLightbar = now + 2000;
         byte motor = _hapticOn ? (byte)56 : (byte)0;
         _device.SetDesktopFeedback(r, g, b, motor, motor);
@@ -624,6 +1052,10 @@ public sealed class DesktopRuntime : IDisposable
                 HidHideInstalled = _hidHideInstalled,
                 KeyboardOpen = _session.Keyboard.IsOpen,
                 LayerName = result.ActiveLayerName,
+                ActiveLayerId = result.ActiveLayerId,
+                Light = LightHex(result.ActiveLayerId),
+                ShellColor = _session.Profile.ShellColor,
+                ShellImage = _session.Profile.ShellImage,
                 BatteryPercent = frame.BatteryPercent,
                 Charging = frame.Charging,
                 Status = _status,
@@ -659,7 +1091,11 @@ public sealed class DesktopRuntime : IDisposable
                 DesktopEnabled = _session.DesktopEnabled,
                 HidHideInstalled = _hidHideInstalled,
                 KeyboardOpen = _session.Keyboard.IsOpen,
-                LayerName = _session.Profile.GetLayer("base")?.Name ?? "Base",
+                LayerName = _session.Profile.BaseLayer.Name,
+                ActiveLayerId = _session.Profile.BaseLayer.Id,
+                Light = _session.Profile.BaseLayer.Light,
+                ShellColor = _session.Profile.ShellColor,
+                ShellImage = _session.Profile.ShellImage,
                 Status = _device == null ? "Connect a DualSense." : _status,
                 Notice = _notice,
                 OfferElevation = _offerElevation,
@@ -719,6 +1155,7 @@ public sealed class DesktopRuntime : IDisposable
     {
         try
         {
+            CloseExtras();
             _device?.Dispose();
         }
         catch
@@ -728,6 +1165,8 @@ public sealed class DesktopRuntime : IDisposable
 
         _device = null;
     }
+
+    public void Notify(string message) => Toast(message);
 
     private void Toast(string message) => ToastRequested?.Invoke(message);
 }

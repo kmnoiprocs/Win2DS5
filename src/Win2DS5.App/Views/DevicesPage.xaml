@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Win2DS5.App.Views.DevicesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Win2DS5.App.Views">
+    <ScrollViewer Padding="0,0,14,0">
+        <StackPanel Spacing="22" Margin="0,0,0,16">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Devices" Style="{StaticResource TitleText}" />
+                <TextBlock Style="{StaticResource CaptionText}" MaxWidth="760" HorizontalAlignment="Left" TextWrapping="Wrap"
+                           Text="Controllers sit up top. Outputs underneath are what they can drive. One controller can feed several outputs, and several controllers can feed the same output." />
+            </StackPanel>
+
+            <StackPanel Spacing="10">
+                <TextBlock Text="INPUTS" Style="{StaticResource EyebrowText}" />
+                <Border x:Name="InputEmpty" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"
+                               Text="Connect a DualSense. Each controller uses one profile from the shared library." />
+                </Border>
+                <local:CardWrap x:Name="Inputs" MinItemWidth="300" MaxItemWidth="460" Gap="12" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="ADD AN OUTPUT" Style="{StaticResource EyebrowText}" />
+                <local:CardWrap MinItemWidth="148" MaxItemWidth="210" Gap="8">
+                    <Button x:Name="AddMouse" Click="OnAddMouse" />
+                    <Button x:Name="AddKeyboard" Click="OnAddKeyboard" />
+                    <Button x:Name="AddDs4" Click="OnAddDs4" />
+                    <Button x:Name="AddXbox" Click="OnAddXbox" />
+                </local:CardWrap>
+                <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap"
+                           Text="One mouse and one keyboard. XBOX pads stop at 4, DualShock 4 pads stop at 8, and virtual controllers share a limit of 8." />
+            </StackPanel>
+
+            <StackPanel Spacing="10">
+                <TextBlock Text="OUTPUTS" Style="{StaticResource EyebrowText}" />
+                <Border x:Name="OutputEmpty" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"
+                               Text="Add a mouse, keyboard, or virtual controller. Buttons choose one of these when you map them." />
+                </Border>
+                <local:CardWrap x:Name="Outputs" MinItemWidth="196" MaxItemWidth="280" Gap="10" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

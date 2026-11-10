@@ -38,6 +38,10 @@ public sealed class StickSettings
     public double Curve { get; set; } = 1.35;
     public double HorizontalScale { get; set; } = 1;
     public double VerticalScale { get; set; } = 1;
+    public string OutputId { get; set; } = "";
+    public bool OutputKnown { get; set; }
+    public OutputDeviceKind OutputKind { get; set; }
+    public int OutputSlot { get; set; }
 }
 
 public sealed class TouchpadSettings
@@ -88,6 +92,7 @@ public sealed class Layer
 {
     public string Id { get; set; } = "base";
     public string Name { get; set; } = "Base";
+    public string Light { get; set; } = "";
     public bool AffectsBindings { get; set; } = true;
     public double PointerScale { get; set; } = 1;
     public Dictionary<string, Binding> Bindings { get; set; } = new();
@@ -104,25 +109,69 @@ public sealed class Layer
             Bindings[key] = binding;
     }
 
-    private static bool KeepsNone(Binding binding) =>
-        binding.Advanced && ((binding.PressSteps?.Count ?? 0) > 0 || (binding.ReleaseSteps?.Count ?? 0) > 0);
+    public Layer Clone()
+    {
+        var copy = System.Text.Json.JsonSerializer.Deserialize<Layer>(
+            System.Text.Json.JsonSerializer.Serialize(this, ProfileStore.Options),
+            ProfileStore.Options) ?? new Layer();
+        copy.Bindings ??= new Dictionary<string, Binding>();
+        return copy;
+    }
+
+    public void ReplaceBindings(Layer source)
+    {
+        var copy = source.Clone();
+        Bindings.Clear();
+        foreach (var pair in copy.Bindings)
+            Bindings[pair.Key] = pair.Value;
+    }
+
+    private static bool KeepsNone(Binding binding) => binding.HasCustomSteps();
 }
 
 public sealed class Profile
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "Desktop";
+    public string ShellColor { get; set; } = "";
+    public string ShellImage { get; set; } = "";
     public List<string> ProcessNames { get; set; } = [];
     public List<Layer> Layers { get; set; } = [];
+    public string BaseLayerId { get; set; } = "";
     public StickSettings LeftStick { get; set; } = new();
     public StickSettings RightStick { get; set; } = new();
     public TouchpadSettings Touchpad { get; set; } = new();
     public GyroSettings Gyro { get; set; } = new();
     public List<string> ToggleChord { get; set; } = [nameof(ControlId.Mute), nameof(ControlId.Create)];
+    public List<InputLayout> Inputs { get; set; } = [];
+
+    public InputLayout LayoutFor(string? deviceKey)
+    {
+        deviceKey ??= "";
+        var found = Inputs.FirstOrDefault(layout => layout.DeviceKey == deviceKey);
+        if (found != null)
+            return found;
+        if (deviceKey.Length > 0)
+        {
+            var pending = Inputs.FirstOrDefault(layout => layout.DeviceKey.Length == 0);
+            if (pending != null)
+            {
+                pending.DeviceKey = deviceKey;
+                return pending;
+            }
+        }
+
+        var created = InputLayout.FromProfile(this, deviceKey);
+        Inputs.Add(created);
+        return created;
+    }
 
     public Layer? GetLayer(string id) => Layers.FirstOrDefault(layer => layer.Id == id);
 
-    public Layer BaseLayer => GetLayer("base") ?? Layers[0];
+    public Layer BaseLayer =>
+        (!string.IsNullOrEmpty(BaseLayerId) ? GetLayer(BaseLayerId) : null)
+        ?? GetLayer("base")
+        ?? Layers[0];
 }
 
 public sealed class AppSettings
@@ -139,14 +188,48 @@ public sealed class AppSettings
     public string Accent { get; set; } = "#7EB6FF";
     public int LongPressMs { get; set; } = 350;
     public bool CheckForUpdates { get; set; } = true;
+    public string SelectedInputKey { get; set; } = "";
+}
+
+public sealed class ControllerAssignment
+{
+    public string DeviceKey { get; set; } = "";
+    public string ProfileId { get; set; } = "";
 }
 
 public sealed class ProfileDocument
 {
     public string ActiveId { get; set; } = "";
     public List<Profile> Profiles { get; set; } = [];
+    public List<OutputDevice> Outputs { get; set; } = [];
+    public List<Layer> LayerLibrary { get; set; } = [];
+    public List<ControllerAssignment> Controllers { get; set; } = [];
     public AppSettings Settings { get; set; } = new();
 
     public Profile Active =>
         Profiles.FirstOrDefault(profile => profile.Id == ActiveId) ?? Profiles[0];
+
+    public Profile ProfileFor(string? deviceKey)
+    {
+        if (!string.IsNullOrEmpty(deviceKey))
+        {
+            var assigned = Controllers.FirstOrDefault(item => item.DeviceKey == deviceKey);
+            var profile = Profiles.FirstOrDefault(item => item.Id == assigned?.ProfileId);
+            if (profile != null)
+                return profile;
+        }
+
+        return Active;
+    }
+
+    public void Assign(string deviceKey, string profileId)
+    {
+        if (string.IsNullOrEmpty(deviceKey) || Profiles.All(profile => profile.Id != profileId))
+            return;
+        var existing = Controllers.FirstOrDefault(item => item.DeviceKey == deviceKey);
+        if (existing == null)
+            Controllers.Add(new ControllerAssignment { DeviceKey = deviceKey, ProfileId = profileId });
+        else
+            existing.ProfileId = profileId;
+    }
 }

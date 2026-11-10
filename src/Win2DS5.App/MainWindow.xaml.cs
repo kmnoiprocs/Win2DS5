@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Win2DS5.App.Overlay;
+using Win2DS5.Core;
 using Win2DS5.App.Runtime;
 using Win2DS5.App.Updates;
 using Win2DS5.App.Theming;
@@ -18,6 +19,8 @@ namespace Win2DS5.App;
 public sealed partial class MainWindow : Window
 {
     private const double RailStep = 46;
+    private bool _outputPrompt;
+    private readonly HashSet<string> _outputAnswers = [];
 
     private readonly TrayIcon _tray = new();
     private readonly KeyboardWindow _keyboard = new();
@@ -42,6 +45,12 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(DragRegion);
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        AppWindow.Changed += (_, args) =>
+        {
+            if (args.DidSizeChange)
+                DispatcherQueue.TryEnqueue(AlignCaption);
+        };
+        AlignCaption();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1240, 820));
         AppWindow.Closing += OnClosing;
         Root.RequestedTheme = Theme.ElementTheme;
@@ -49,7 +58,11 @@ public sealed partial class MainWindow : Window
         BuildRail();
         Theme.Changed += OnThemeChanged;
         OnThemeChanged();
-        Profiles.ProfileChanged += () => Controls.Apply(App.Runtime.Capture());
+        Profiles.ProfileChanged += () =>
+        {
+            Controls.ReloadMaps();
+            Touchpad.ReloadMaps();
+        };
         App.Runtime.ToastRequested += message => DispatcherQueue.TryEnqueue(() => _toast.Show(message));
         var updateAnnounced = false;
         InstalledCopy.Changed += () => DispatcherQueue.TryEnqueue(() =>
@@ -98,11 +111,13 @@ public sealed partial class MainWindow : Window
 
     private void BuildRail()
     {
+        AddRail("Devices", "\uE8F1", Devices);
         AddRail("Controls", "\uE7FC", Controls);
         AddRail("Touchpad", "\uE7C9", Touchpad);
         AddRail("Keyboard", "\uE765", Keyboard);
         AddRail("Profiles", "\uE716", Profiles);
         AddRail("Settings", "\uE713", Settings);
+        Devices.EditRequested += () => SelectRail(_rail[1], animate: true);
         SelectRail(_rail[0], animate: false);
     }
 
@@ -175,6 +190,9 @@ public sealed partial class MainWindow : Window
         if (!AppWindow.IsVisible)
             return;
 
+        App.Runtime.RefreshWarnings(false);
+        if (Devices.Visibility == Visibility.Visible)
+            Devices.Refresh();
         if (Controls.Visibility == Visibility.Visible)
             Controls.Apply(snapshot);
         if (Touchpad.Visibility == Visibility.Visible)
@@ -189,10 +207,12 @@ public sealed partial class MainWindow : Window
         var status = $"{link}  ·  {snapshot.LayerName} layer  ·  {(snapshot.DesktopEnabled ? "Desktop control" : "Passed to the game")}";
         if (StatusText.Text != status)
             StatusText.Text = status;
-        if (NoticeText.Text != snapshot.Notice)
+        ConsiderMissingOutputs();
+        string notice = string.IsNullOrEmpty(snapshot.Notice) ? App.Runtime.FirstWarning ?? "" : snapshot.Notice;
+        if (NoticeText.Text != notice)
         {
-            NoticeText.Text = snapshot.Notice;
-            NoticePanel.Opacity = string.IsNullOrEmpty(snapshot.Notice) ? 0 : 1;
+            NoticeText.Text = notice;
+            NoticePanel.Opacity = string.IsNullOrEmpty(notice) ? 0 : 1;
         }
 
         var elevate = snapshot.OfferElevation ? Visibility.Visible : Visibility.Collapsed;
@@ -240,7 +260,7 @@ public sealed partial class MainWindow : Window
             LinkGlyph.Foreground = Theme.Brush(snapshot.Connected ? "AccentTextBrush" : "MutedBrush");
         }
 
-        var profile = "Profile  ·  " + App.Runtime.Document.Active.Name;
+        var profile = "Profile  ·  " + App.Runtime.Editing.Name;
         if (ProfileName.Text != profile)
             ProfileName.Text = profile;
         int key = HashCode.Combine(battery, (int)BatteryTrack.ActualWidth);
@@ -272,6 +292,67 @@ public sealed partial class MainWindow : Window
         }
 
         Environment.Exit(0);
+    }
+
+    private void AlignCaption()
+    {
+        double inset = AppWindow.TitleBar.RightInset;
+        if (inset > 0)
+            CaptionInset.Width = new GridLength(inset);
+    }
+
+    private void ConsiderMissingOutputs()
+    {
+        if (_outputPrompt || Content?.XamlRoot == null)
+            return;
+        var document = App.Runtime.Document;
+        var keys = App.Runtime.ConnectedKeys.ToList();
+        if (!string.IsNullOrEmpty(App.Runtime.ActiveInputKey))
+            keys.Add(App.Runtime.ActiveInputKey);
+        foreach (var key in keys.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var profile = document.ProfileFor(key);
+            var missing = OutputRestore.Find(profile, document.Outputs);
+            if (missing.Count == 0)
+                continue;
+            string token = profile.Id + ":" + string.Join(",", missing.Select(item => item.OldId).OrderBy(id => id, StringComparer.Ordinal));
+            if (_outputAnswers.Contains(token))
+                continue;
+            _outputPrompt = true;
+            _ = AskToRestoreOutputs(profile, missing, token);
+            return;
+        }
+    }
+
+    private async Task AskToRestoreOutputs(Profile profile, List<MissingOutput> missing, string token)
+    {
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Missing outputs",
+                Content = profile.Name + " uses outputs that are not available:\n\n" + string.Join("\n", missing.Select(item => "• " + item.Label)) + "\n\nAdd them?",
+                PrimaryButtonText = "Add outputs",
+                CloseButtonText = "Not now",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot,
+            };
+            var result = await dialog.ShowAsync();
+            _outputAnswers.Add(token);
+            if (result != ContentDialogResult.Primary)
+                return;
+            var failed = OutputRestore.Restore(App.Runtime.Document, profile, missing);
+            App.Runtime.Save();
+            Controls.ReloadMaps();
+            Touchpad.ReloadMaps();
+            App.Runtime.Notify(failed.Count == 0
+                ? "Added the missing outputs."
+                : "Couldn't add " + string.Join(", ", failed) + ".");
+        }
+        finally
+        {
+            _outputPrompt = false;
+        }
     }
 
     private void OnThemeButton(object sender, RoutedEventArgs e) => App.SetAppearance(!Theme.IsDark, Theme.Accent);

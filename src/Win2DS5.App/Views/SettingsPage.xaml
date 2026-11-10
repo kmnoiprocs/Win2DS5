@@ -162,7 +162,7 @@
                     <TextBlock x:Name="SteamWarning" TextWrapping="Wrap" Foreground="{StaticResource AmberBrush}" />
                     <TextBlock x:Name="GameBarWarning" TextWrapping="Wrap" Foreground="{StaticResource AmberBrush}" />
                     <TextBlock Style="{StaticResource CaptionText}"
-                               Text="Steam Input and the Xbox Game Bar can also grab a DualSense. Turn those off for the controller while you use it as a mouse. Closing this window leaves Win2DS5 running in the tray." />
+                               Text="Steam Input and the XBOX Game Bar can also grab a DualSense. Turn those off for the controller while you use it as a mouse. Closing this window leaves Win2DS5 running in the tray." />
                 </StackPanel>
             </Border>
         </StackPanel>

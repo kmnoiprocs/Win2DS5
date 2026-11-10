@@ -167,6 +167,7 @@ public static class Theme
         Stops(r, "PlateKeyBrush", p.PlateKeyTop, p.PlateKey);
         Stops(r, "HeaderGradientBrush", Alpha(Accent, dark ? (byte)0x2C : (byte)0x26), Alpha(Accent, 0));
         Stops(r, "AccentGradientBrush", Mix(Accent, Colors.White, 0.16), Mix(Accent, Colors.Black, 0.08));
+        Stops(r, "ButtonGlowBrush", Alpha(Accent, dark ? (byte)0x55 : (byte)0x38), Alpha(Accent, 0));
         Stops(r, "SelectedRailBrush", Alpha(Accent, dark ? (byte)0x30 : (byte)0x2A), Alpha(Accent, 0));
         Stops(r, "GlowLineBrush", Alpha(Accent, 0), Alpha(Accent, 0xD0), Alpha(Accent, 0));
 
@@ -175,6 +176,20 @@ public static class Theme
     }
 
     public static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
+
+    public static bool TryHex(string? hex, out Color color)
+    {
+        color = default;
+        if (string.IsNullOrWhiteSpace(hex))
+            return false;
+        var text = hex.Trim().TrimStart('#');
+        if (text.Length == 6)
+            text = "FF" + text;
+        if (text.Length != 8 || !uint.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint value))
+            return false;
+        color = Color.FromArgb((byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value);
+        return true;
+    }
 
     public static Color Hex(string hex)
     {

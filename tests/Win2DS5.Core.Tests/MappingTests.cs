@@ -331,6 +331,106 @@ public class MappingTests
         Assert.DoesNotContain(moved.Commands, command => command.Kind == OutputKind.MouseMove);
     }
 
+    [Fact]
+    public void ReleaseAll_CentersSticksTheSessionWasDriving()
+    {
+        var profile = ProfilePresets.Blank();
+        profile.LeftStick.Mode = StickMode.Gamepad;
+        profile.LeftStick.Deadzone = 0;
+        profile.LeftStick.Curve = 1;
+        profile.LeftStick.OutputId = "pad-1";
+        var session = Session(profile);
+        var frame = ControllerFrame.Neutral();
+        frame.LeftX = 255;
+        session.Step(frame, Ms(0));
+        var released = session.ReleaseAll();
+        Assert.Contains(released, command => command.Kind == OutputKind.LeftStick && command.A == 0 && command.B == 0 && command.OutputId == "pad-1");
+        Assert.Contains(released, command => command.Kind == OutputKind.RightStick && command.A == 0 && command.B == 0 && command.OutputId == "pad-1");
+    }
+
+    [Fact]
+    public void PadBinding_PressesEverySelectedGamepad()
+    {
+        var profile = ProfilePresets.Blank();
+        profile.BaseLayer.Set(ControlId.Cross, new Binding
+        {
+            Kind = BindingKind.Pad,
+            PadButton = ControlId.Cross,
+            Action = "xbox.a",
+            OutputKind = OutputDeviceKind.Xbox,
+            Targets = ["xbox-1", "xbox-2"],
+        });
+        var session = Session(profile);
+        var pressed = session.Step(Pad.Hold(ControlId.Cross), Ms(0));
+        var downs = pressed.Commands.Where(command => command.Kind == OutputKind.PadDown).Select(command => command.OutputId).ToArray();
+        Assert.Equal(["xbox-1", "xbox-2"], downs);
+    }
+
+    [Fact]
+    public void MacroMouseMove_UsesTheStepDistanceAndPositiveYMovesUp()
+    {
+        var profile = ProfilePresets.Blank();
+        profile.BaseLayer.Set(ControlId.Square, new Binding
+        {
+            Advanced = true,
+            DownMacros = [new MacroStep { Code = "mouse.move", ScrollX = 5, ScrollY = 25 }],
+        });
+        var session = Session(profile);
+        var moved = session.Step(Pad.Hold(ControlId.Square), Ms(0));
+        var move = Assert.Single(moved.Commands, command => command.Kind == OutputKind.MouseMove);
+        Assert.Equal(5, move.A);
+        Assert.Equal(-25, move.B);
+    }
+
+    [Fact]
+    public void MouseMove_PositiveYMovesThePointerUp()
+    {
+        var profile = ProfilePresets.Blank();
+        profile.BaseLayer.Set(ControlId.Square, new Binding
+        {
+            Kind = BindingKind.MouseMove,
+            ScrollX = 12,
+            ScrollY = 40,
+        });
+        var session = Session(profile);
+        var moved = session.Step(Pad.Hold(ControlId.Square), Ms(0));
+        var move = Assert.Single(moved.Commands, command => command.Kind == OutputKind.MouseMove);
+        Assert.Equal(12, move.A);
+        Assert.Equal(-40, move.B);
+    }
+
+    [Fact]
+    public void BothEdge_PressesAndReleasesInOneStep()
+    {
+        var profile = ProfilePresets.Blank();
+        profile.BaseLayer.Set(ControlId.Cross, new Binding
+        {
+            Advanced = true,
+            DownMacros = [new MacroStep { Code = "mouse.left", Both = true }],
+        });
+        var session = Session(profile);
+        var down = session.Step(Pad.Hold(ControlId.Cross), Ms(0));
+        Assert.Equal([OutputKind.MouseDown, OutputKind.MouseUp], down.Commands.Select(command => command.Kind).ToArray());
+        var up = session.Step(Pad.Hold(), Ms(30));
+        Assert.DoesNotContain(up.Commands, command => command.Kind is OutputKind.MouseDown or OutputKind.MouseUp);
+    }
+
+    [Fact]
+    public void ToggleWin2DS5_PausesAndResumesOnTheSameButton()
+    {
+        var profile = ProfilePresets.Blank();
+        profile.BaseLayer.Set(ControlId.Mute, new Binding { Kind = BindingKind.Pause });
+        var session = Session(profile);
+        var pause = session.Step(Pad.Hold(ControlId.Mute), Ms(0));
+        Assert.True(pause.Pause);
+        session.Passthrough = true;
+        session.Step(Pad.Hold(), Ms(20));
+        var resume = session.Step(Pad.Hold(ControlId.Mute), Ms(40));
+        Assert.True(resume.Pause);
+        Assert.Equal("app.pause", ButtonCatalog.Match(new Binding { Kind = BindingKind.Resume }));
+        Assert.Equal("Toggle Win2DS5", ButtonCatalog.Find("app.pause")?.Label);
+    }
+
     private static MappingSession Session(Profile profile) => new(profile) { DesktopEnabled = true };
 
     private static TimeSpan Ms(int milliseconds) => TimeSpan.FromMilliseconds(milliseconds);

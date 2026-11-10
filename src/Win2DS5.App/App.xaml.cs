@@ -19,6 +19,7 @@ public partial class App : Application
     private readonly ProfileDocument _document;
 
     public static DesktopRuntime Runtime { get; private set; } = null!;
+    public static MainWindow Window => _window!;
     public static bool StartHidden { get; private set; }
     public static bool IsElevated => Elevation.IsElevated;
 

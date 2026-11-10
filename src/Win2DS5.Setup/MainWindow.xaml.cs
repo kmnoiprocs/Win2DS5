@@ -152,7 +152,7 @@ public partial class MainWindow : Window
         Subheading.Text = step switch
         {
             0 => "Choose where it goes, and which icons you want.",
-            1 => "HidHide hides the real controller from games. ViGEmBus creates the virtual Xbox pad.",
+            1 => "HidHide hides the real controller from games. ViGEmBus creates the virtual XBOX pad.",
             2 => "This can take a few minutes if a driver is downloading.",
             _ => "Version " + SetupEngine.Version,
         };

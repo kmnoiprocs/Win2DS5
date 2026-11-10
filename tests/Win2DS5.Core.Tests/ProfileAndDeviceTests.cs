@@ -16,12 +16,11 @@ public class ProfileAndDeviceTests
         var loaded = JsonSerializer.Deserialize<ProfileDocument>(json, ProfileStore.Options);
         Assert.NotNull(loaded);
         ProfileStore.Repair(loaded);
-        var shift = loaded.Active.GetLayer("shift");
+        var shift = loaded.Active.GetLayer("shift-touch");
         Assert.NotNull(shift);
         Assert.Equal(BindingKind.Key, shift.Get(ControlId.Cross)?.Kind);
-        Assert.Equal("Mouse hand", loaded.Active.Name);
-        Assert.Contains("Mute", loaded.Active.ToggleChord);
-        Assert.Contains("Create", loaded.Active.ToggleChord);
+        Assert.Equal("Touchpad", loaded.Active.Name);
+        Assert.Empty(loaded.Active.ToggleChord);
     }
 
     [Fact]

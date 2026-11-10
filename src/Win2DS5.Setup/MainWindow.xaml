@@ -68,7 +68,7 @@
                                 </Border>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Muted}" Margin="0,8,0,0"
-                                       Text="Desktop mode uses HidHide to hide the real DualSense from other programs while you are using it as a mouse and keyboard. Without it, a game can also see the physical controller, so the pad may rumble, take the sticks, or show up twice next to the virtual Xbox controller. Mouse and keyboard mapping still works if you skip this." />
+                                       Text="Desktop mode uses HidHide to hide the real DualSense from other programs while you are using it as a mouse and keyboard. Without it, a game can also see the physical controller, so the pad may rumble, take the sticks, or show up twice next to the virtual XBOX controller. Mouse and keyboard mapping still works if you skip this." />
                             <TextBlock x:Name="HidHideState" Style="{StaticResource Muted}" Margin="0,8,0,0" />
                             <CheckBox x:Name="HidHideBox" Content="Download and install HidHide" IsChecked="True" />
                         </StackPanel>
@@ -83,7 +83,7 @@
                                 </Border>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Muted}" Margin="0,8,0,0"
-                                       Text="ViGEmBus is the driver that creates a virtual Xbox controller. Desktop profiles that press controller buttons, triggers, or sticks as a gamepad need it. Profiles that only move the mouse and type keys do not." />
+                                       Text="ViGEmBus is the driver that creates a virtual XBOX controller. Desktop profiles that press controller buttons, triggers, or sticks as a gamepad need it. Profiles that only move the mouse and type keys do not." />
                             <TextBlock x:Name="ViGEmState" Style="{StaticResource Muted}" Margin="0,8,0,0" />
                             <CheckBox x:Name="ViGEmBox" Content="Download and install ViGEmBus" IsChecked="True" />
                         </StackPanel>
