@@ -1,6 +1,5 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Win2DS5.App.Controls;
 using Win2DS5.Core;
 using Layout = Win2DS5.Core.Layout;
 
@@ -9,6 +8,7 @@ namespace Win2DS5.App.Views;
 public sealed partial class ProfilesPage : UserControl
 {
     private bool _loading = true;
+    private readonly List<Layout> _baseChoices = [];
 
     public ProfilesPage()
     {
@@ -94,10 +94,21 @@ public sealed partial class ProfilesPage : UserControl
             return;
         NameBox.Text = profile.Name;
         ProcessBox.Text = string.Join(", ", profile.ProcessNames);
+        _baseChoices.Clear();
+        var home = profile.Layouts.Count > 0 ? profile.BaseLayout : null;
+        if (home != null)
+            _baseChoices.Add(home);
+        foreach (var layout in App.Runtime.Document.LayoutLibrary)
+        {
+            if (_baseChoices.Any(item => item.Id == layout.Id))
+                continue;
+            _baseChoices.Add(layout);
+        }
+
         BaseLayoutBox.Items.Clear();
-        foreach (var layout in profile.Layouts)
+        foreach (var layout in _baseChoices)
             BaseLayoutBox.Items.Add(layout.Name);
-        int baseIndex = profile.Layouts.FindIndex(layout => layout.Id == profile.BaseLayout.Id);
+        int baseIndex = home == null ? -1 : _baseChoices.FindIndex(layout => layout.Id == home.Id);
         BaseLayoutBox.SelectedIndex = baseIndex >= 0 ? baseIndex : 0;
         bool onController = !string.IsNullOrEmpty(App.Runtime.ActiveInputKey) && App.Runtime.Editing.Id == profile.Id;
         UsingLabel.Text = onController
@@ -131,8 +142,8 @@ public sealed partial class ProfilesPage : UserControl
         {
             profile.Name = string.IsNullOrWhiteSpace(NameBox.Text) ? profile.Name : NameBox.Text.Trim();
             profile.ProcessNames = ProcessBox.Text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-            if (BaseLayoutBox.SelectedIndex >= 0 && BaseLayoutBox.SelectedIndex < profile.Layouts.Count)
-                ChooseBase(profile, profile.Layouts[BaseLayoutBox.SelectedIndex]);
+            if (BaseLayoutBox.SelectedIndex >= 0 && BaseLayoutBox.SelectedIndex < _baseChoices.Count)
+                profile.UseBase(_baseChoices[BaseLayoutBox.SelectedIndex]);
         });
         App.Runtime.Save();
         Reload();
@@ -150,77 +161,10 @@ public sealed partial class ProfilesPage : UserControl
 
     private async void OnNew(object sender, RoutedEventArgs e)
     {
-        if (XamlRoot == null)
-        {
-            Add(BlankProfile(null), "New profile");
+        var profile = await ProfileDialogs.CreateAsync(XamlRoot, App.Runtime.Document);
+        if (profile == null)
             return;
-        }
-
-        var library = App.Runtime.Document.LayoutLibrary;
-        var choices = new QuietComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, MinWidth = 280 };
-        choices.Items.Add("New blank base layout");
-        foreach (var layout in library)
-            choices.Items.Add(layout.Name);
-        choices.SelectedIndex = 0;
-        var body = new StackPanel { Spacing = 10 };
-        body.Children.Add(new TextBlock
-        {
-            Text = "Choose the saved layout this profile starts from.",
-            TextWrapping = TextWrapping.Wrap,
-        });
-        body.Children.Add(choices);
-        var dialog = new ContentDialog
-        {
-            Title = "New profile",
-            Content = body,
-            PrimaryButtonText = "Create",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = XamlRoot,
-        };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-            return;
-
-        Layout? chosen = choices.SelectedIndex > 0 && choices.SelectedIndex - 1 < library.Count
-            ? library[choices.SelectedIndex - 1]
-            : null;
-        var profile = BlankProfile(chosen);
-        profile.Name = UniqueName("New profile");
         AddExisting(profile);
-    }
-
-    private Profile BlankProfile(Layout? shared)
-    {
-        var profile = ProfilePresets.Blank();
-        profile.Inputs.Clear();
-        if (shared != null)
-        {
-            profile.Layouts = [shared];
-            profile.BaseLayoutId = shared.Id;
-            return profile;
-        }
-
-        string name = BlankLayoutName(UniqueName("New profile"));
-        var layout = new Layout { Id = Guid.NewGuid().ToString("N"), Name = name };
-        App.Runtime.Document.LayoutLibrary.Add(layout);
-        profile.Layouts = [layout];
-        profile.BaseLayoutId = layout.Id;
-        return profile;
-    }
-
-    private static string BlankLayoutName(string profileName)
-    {
-        var names = App.Runtime.Document.LayoutLibrary.Select(layout => layout.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (!names.Contains("Base"))
-            return "Base";
-        if (!names.Contains(profileName))
-            return profileName;
-        for (int i = 2; ; i++)
-        {
-            string candidate = profileName + " " + i;
-            if (!names.Contains(candidate))
-                return candidate;
-        }
     }
 
     private void OnDuplicate(object sender, RoutedEventArgs e)
@@ -269,25 +213,12 @@ public sealed partial class ProfilesPage : UserControl
         AddExisting(created);
     }
 
-    private void Add(Profile profile, string name)
-    {
-        profile.Name = UniqueName(name);
-        AddExisting(profile);
-    }
-
     private void AddExisting(Profile profile)
     {
         App.Runtime.Update(() => App.Runtime.Document.Profiles.Add(profile));
         App.Runtime.Save();
         Reload();
         ProfileList.SelectedIndex = App.Runtime.Document.Profiles.Count - 1;
-    }
-
-    private static void ChooseBase(Profile profile, Layout layout)
-    {
-        profile.Layouts.RemoveAll(item => item.Id == layout.Id);
-        profile.Layouts.Insert(0, layout);
-        profile.BaseLayoutId = layout.Id;
     }
 
     private static void AdoptPresetLayouts(Profile profile)

@@ -176,6 +176,92 @@ public sealed class Profile
         (!string.IsNullOrEmpty(BaseLayoutId) ? GetLayout(BaseLayoutId) : null)
         ?? GetLayout("base")
         ?? Layouts[0];
+
+    public void Include(Layout layout)
+    {
+        if (Layouts.Any(item => item.Id == layout.Id))
+            return;
+        Layouts.Add(layout);
+    }
+
+    public void UseBase(Layout layout)
+    {
+        Include(layout);
+        Layouts.RemoveAll(item => item.Id == layout.Id);
+        Layouts.Insert(0, layout);
+        BaseLayoutId = layout.Id;
+    }
+
+    public HashSet<string> UsedLayoutIds()
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        if (Layouts.Count > 0)
+            ids.Add(BaseLayout.Id);
+        foreach (var layout in Layouts)
+        {
+            foreach (var binding in layout.Bindings.Values)
+                Collect(binding, ids);
+        }
+
+        if (Touchpad?.Gestures != null)
+        {
+            foreach (var binding in Touchpad.Gestures.Values)
+                Collect(binding, ids);
+        }
+
+        return ids;
+    }
+
+    public List<Layout> ShownLayouts(IEnumerable<string>? extraIds = null)
+    {
+        var used = UsedLayoutIds();
+        if (extraIds != null)
+        {
+            foreach (var id in extraIds)
+            {
+                if (!string.IsNullOrEmpty(id))
+                    used.Add(id);
+            }
+        }
+
+        var shown = new List<Layout>();
+        if (Layouts.Count == 0)
+            return shown;
+        var home = BaseLayout;
+        shown.Add(home);
+        foreach (var layout in Layouts)
+        {
+            if (layout.Id == home.Id)
+                continue;
+            if (used.Contains(layout.Id))
+                shown.Add(layout);
+        }
+
+        return shown;
+    }
+
+    public List<Layout> ModifierChoices(IReadOnlyList<Layout> library)
+    {
+        var list = new List<Layout>();
+        if (Layouts.Count > 0)
+            list.Add(BaseLayout);
+        foreach (var layout in library)
+        {
+            if (list.Any(item => item.Id == layout.Id))
+                continue;
+            list.Add(layout);
+        }
+
+        return list;
+    }
+
+    private static void Collect(Binding? binding, HashSet<string> ids)
+    {
+        if (binding == null)
+            return;
+        foreach (var id in binding.LayoutTargets())
+            ids.Add(id);
+    }
 }
 
 public sealed class AppSettings

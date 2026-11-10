@@ -92,4 +92,49 @@ public class LayoutAndOutputRestoreTests
         Assert.Same(first.Layouts.Last(), second.Layouts.Last());
         Assert.Equal(BindingKind.Mouse, second.GetLayout("aim")!.Get(ControlId.Circle)!.Kind);
     }
+
+    [Fact]
+    public void ShownLayouts_AreTheBaseAndModifierTargets()
+    {
+        var document = ProfileStore.CreateDefault();
+        var touch = document.Profiles.First(profile => profile.Id == ProfilePresets.TouchpadId);
+        var shown = touch.ShownLayouts().Select(layout => layout.Name).ToList();
+        Assert.Equal("Touchpad", shown[0]);
+        Assert.Contains("Touchpad shift", shown);
+        Assert.Contains("Touchpad precision", shown);
+        Assert.Contains("Profile Select", shown);
+
+        var spare = new Layout { Id = "spare", Name = "Spare" };
+        touch.Layouts.Add(spare);
+        Assert.DoesNotContain(touch.ShownLayouts(), layout => layout.Id == "spare");
+        Assert.Contains(touch.ShownLayouts(["spare"]), layout => layout.Id == "spare");
+
+        touch.UseBase(spare);
+        Assert.Equal("spare", touch.BaseLayoutId);
+        Assert.Equal("Spare", touch.ShownLayouts()[0].Name);
+    }
+
+    [Fact]
+    public void ResetToStock_ReplacesSavedProfilesAndSettings()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "win2ds5-reset-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var dirty = ProfileStore.CreateDefault();
+            dirty.Settings.Theme = "Light";
+            dirty.Settings.CheckForUpdates = false;
+            dirty.Profiles.Clear();
+            dirty.Profiles.Add(ProfilePresets.Blank());
+            ProfileStore.Save(path, dirty);
+            var restored = ProfileStore.ResetToStock(path);
+            Assert.Equal(["DS4", "XBOX", "Touchpad", "Sticks"], restored.Profiles.Select(profile => profile.Name));
+            Assert.Equal("Dark", restored.Settings.Theme);
+            Assert.True(restored.Settings.CheckForUpdates);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
 }

@@ -124,6 +124,29 @@ public sealed class Binding
 
     public bool HasCustomSteps() =>
         Advanced && ((PressSteps?.Count ?? 0) > 0 || (ReleaseSteps?.Count ?? 0) > 0 || (DownMacros?.Count ?? 0) > 0 || (UpMacros?.Count ?? 0) > 0);
+
+    public IEnumerable<string> LayoutTargets()
+    {
+        if (Kind is BindingKind.LayoutHold or BindingKind.LayoutToggle && !string.IsNullOrEmpty(LayoutId))
+            yield return LayoutId;
+        if (Tap != null)
+        {
+            foreach (var id in Tap.LayoutTargets())
+                yield return id;
+        }
+
+        foreach (var step in DownMacros)
+        {
+            if (!string.IsNullOrEmpty(step.LayoutId))
+                yield return step.LayoutId;
+        }
+
+        foreach (var step in UpMacros)
+        {
+            if (!string.IsNullOrEmpty(step.LayoutId))
+                yield return step.LayoutId;
+        }
+    }
 }
 
 public readonly record struct OutputCommand(OutputKind Kind, int A, int B, string OutputId = "")

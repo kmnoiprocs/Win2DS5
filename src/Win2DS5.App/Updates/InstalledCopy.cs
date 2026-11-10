@@ -63,11 +63,38 @@ public static class InstalledCopy
             return true;
         }
 
-        if (!PendingReady())
+        return false;
+    }
+
+    public static async Task<bool> RunAtStartupAsync(Action<string> status, bool check)
+    {
+        void OnChanged() => status(Status);
+        Changed += OnChanged;
+        try
+        {
+            if (PendingReady())
+            {
+                status("Installing the downloaded build…");
+                return true;
+            }
+
+            if (!check || !IsInstalled)
+                return false;
+
+            var result = await CheckAsync();
+            if (result.Ready)
+            {
+                status("Installing the new build…");
+                return true;
+            }
+
+            status(result.Message);
             return false;
-        BeginApply();
-        Environment.Exit(0);
-        return true;
+        }
+        finally
+        {
+            Changed -= OnChanged;
+        }
     }
 
     public static void StartWatching(Func<bool> enabled)
@@ -76,9 +103,9 @@ public static class InstalledCopy
             return;
         _ = Task.Run(async () =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(6));
             while (true)
             {
+                await Task.Delay(TimeSpan.FromHours(6));
                 try
                 {
                     if (IsInstalled && enabled())
@@ -88,8 +115,6 @@ public static class InstalledCopy
                 {
                     Log(ex.Message);
                 }
-
-                await Task.Delay(TimeSpan.FromHours(6));
             }
         });
     }
@@ -317,12 +342,12 @@ public static class InstalledCopy
         if (File.Exists(FailedPath))
             return "The last update did not install. Win2DS5 is still this version. Check now tries again.";
         return File.Exists(Path.Combine(AppContext.BaseDirectory, InstallMarker.FileName))
-            ? "This copy installs published builds the next time it starts."
+            ? "This copy checks GitHub for a published build before it opens."
             : "This is a development copy. It does not replace itself. Computers where Win2DS5 was installed pick up new builds on their own.";
     }
 
     private static string ReadyMessage(string version) =>
-        $"Version {version} is downloaded. It installs the next time Win2DS5 starts.";
+        $"Version {version} is downloaded. Restart Win2DS5 to install it.";
 
     private static string PackagePath => Path.Combine(UpdateDirectory, "package.zip");
 

@@ -196,15 +196,16 @@ public sealed partial class ControlsPage : UserControl
 
         flyout.Items.Add(new MenuFlyoutSeparator());
         var create = new MenuFlyoutItem { Text = "New profile", Icon = new FontIcon { Glyph = "\uE710" } };
-        create.Click += (_, _) => CreateProfile();
+        create.Click += async (_, _) => await CreateProfile();
         flyout.Items.Add(create);
         flyout.ShowAt(ProfileButton);
     }
 
-    private void CreateProfile()
+    private async Task CreateProfile()
     {
-        var profile = ProfilePresets.Blank();
-        profile.Name = UniqueName("New profile");
+        var profile = await ProfileDialogs.CreateAsync(XamlRoot, _runtime.Document);
+        if (profile == null)
+            return;
         _runtime.Update(() => _runtime.Document.Profiles.Add(profile));
         _runtime.AssignToActive(profile.Id);
         _runtime.Save();
@@ -426,7 +427,9 @@ public sealed partial class ControlsPage : UserControl
             return;
         var profile = _runtime.Editing;
         var flyout = new MenuFlyout();
-        foreach (var layout in profile.Layouts)
+        var shown = TabLayouts();
+        var shownIds = shown.Select(layout => layout.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var layout in shown)
         {
             string id = layout.Id;
             var item = new MenuFlyoutItem
@@ -438,11 +441,50 @@ public sealed partial class ControlsPage : UserControl
             flyout.Items.Add(item);
         }
 
+        var hidden = profile.Layouts.Where(layout => !shownIds.Contains(layout.Id)).ToList();
+        if (hidden.Count > 0)
+        {
+            var other = new MenuFlyoutSubItem { Text = "Other layouts on this profile" };
+            foreach (var layout in hidden)
+            {
+                string id = layout.Id;
+                var item = new MenuFlyoutItem { Text = layout.Name, Icon = new FontIcon { Glyph = "\uE770" } };
+                item.Click += (_, _) => SelectLayout(id);
+                other.Items.Add(item);
+            }
+
+            flyout.Items.Add(other);
+        }
+
+        if (_layoutId != profile.BaseLayout.Id)
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+            var use = new MenuFlyoutItem { Text = "Use as the base layout", Icon = new FontIcon { Glyph = "\uE80F" } };
+            use.Click += (_, _) => SetBaseLayout(_layoutId);
+            flyout.Items.Add(use);
+        }
+
+        var bases = _runtime.Document.LayoutLibrary.Where(layout => layout.Id != profile.BaseLayout.Id).ToList();
+        if (bases.Count > 0)
+        {
+            if (_layoutId == profile.BaseLayout.Id)
+                flyout.Items.Add(new MenuFlyoutSeparator());
+            var choose = new MenuFlyoutSubItem { Text = "Choose a base layout" };
+            foreach (var layout in bases)
+            {
+                string id = layout.Id;
+                var item = new MenuFlyoutItem { Text = layout.Name };
+                item.Click += (_, _) => SetBaseLayout(id);
+                choose.Items.Add(item);
+            }
+
+            flyout.Items.Add(choose);
+        }
+
         var library = _runtime.Document.LayoutLibrary.Where(layout => profile.Layouts.All(item => item.Id != layout.Id)).ToList();
         if (library.Count > 0)
         {
-            flyout.Items.Add(new MenuFlyoutSeparator());
-            var add = new MenuFlyoutSubItem { Text = "Add a saved layout" };
+            var add = new MenuFlyoutSubItem { Text = "Include a saved layout" };
             foreach (var layout in library)
             {
                 string id = layout.Id;
@@ -452,7 +494,7 @@ public sealed partial class ControlsPage : UserControl
                     var shared = _runtime.Document.LayoutLibrary.FirstOrDefault(candidate => candidate.Id == id);
                     if (shared == null || profile.Layouts.Any(existing => existing.Id == id))
                         return;
-                    _runtime.Update(() => profile.Layouts.Add(shared));
+                    _runtime.Update(() => profile.Include(shared));
                     _layoutId = id;
                     _runtime.Save();
                     ReloadMaps();
@@ -468,6 +510,18 @@ public sealed partial class ControlsPage : UserControl
         create.Click += async (_, _) => await CreateLayout();
         flyout.Items.Add(create);
         flyout.ShowAt(LayoutButton);
+    }
+
+    private void SetBaseLayout(string id)
+    {
+        var layout = _runtime.Document.LayoutLibrary.FirstOrDefault(item => item.Id == id)
+            ?? _runtime.Editing.GetLayout(id);
+        if (layout == null)
+            return;
+        _runtime.Update(() => _runtime.Editing.UseBase(layout), true);
+        _layoutId = layout.Id;
+        _runtime.Save();
+        ReloadMaps();
     }
 
     private void SelectLayout(string id)
@@ -520,7 +574,7 @@ public sealed partial class ControlsPage : UserControl
         if (!_renamingLayout)
             LayoutLabel.Text = selected.Name;
         BindingTitle.Text = selected.Name;
-        foreach (var layout in profile.Layouts)
+        foreach (var layout in TabLayouts())
         {
             string id = layout.Id;
             LayoutTabs.Children.Add(Tab(layout.Name, id == _layoutId, () => SelectLayout(id), id == profile.BaseLayout.Id));
@@ -825,6 +879,50 @@ public sealed partial class ControlsPage : UserControl
 
     private Layout SelectedLayout() => _runtime.Editing.GetLayout(_layoutId) ?? _runtime.Editing.BaseLayout;
 
+    private List<Layout> TabLayouts() => _runtime.Editing.ShownLayouts(ExtraTabIds());
+
+    private List<string> ExtraTabIds()
+    {
+        var ids = new List<string> { _layoutId };
+        foreach (var draft in _drafts.Values)
+        {
+            foreach (var binding in draft.Bindings.Values)
+                ids.AddRange(binding.LayoutTargets());
+        }
+
+        return ids;
+    }
+
+    private void IncludeDraftModifiers()
+    {
+        foreach (var draft in _drafts.Values)
+        {
+            foreach (var binding in draft.Bindings.Values)
+                IncludeModifiers(binding);
+        }
+    }
+
+    private void IncludeModifiers(Binding? binding)
+    {
+        if (binding == null)
+            return;
+        var profile = _runtime.Editing;
+        bool added = false;
+        foreach (var id in binding.LayoutTargets())
+        {
+            if (profile.GetLayout(id) != null)
+                continue;
+            var layout = _runtime.Document.LayoutLibrary.FirstOrDefault(item => item.Id == id);
+            if (layout == null)
+                continue;
+            profile.Include(layout);
+            added = true;
+        }
+
+        if (added)
+            RefreshLayouts();
+    }
+
     private void LoadEditor()
     {
         var profile = _runtime.Editing;
@@ -834,7 +932,7 @@ public sealed partial class ControlsPage : UserControl
                 return;
             var zone = (TouchZone)_zoneBox.SelectedIndex;
             var kind = (GestureKind)_gestureBox.SelectedIndex;
-            Editor.Show($"{zone} {kind}", "A drag never fires a zone. Tap and long-press do.", profile.Touchpad.GetGesture(zone, kind), profile.Layouts, false, false, false, _runtime.Document.Outputs);
+            Editor.Show($"{zone} {kind}", "A drag never fires a zone. Tap and long-press do.", profile.Touchpad.GetGesture(zone, kind), profile.ModifierChoices(_runtime.Document.LayoutLibrary), false, false, false, _runtime.Document.Outputs);
             return;
         }
 
@@ -842,7 +940,7 @@ public sealed partial class ControlsPage : UserControl
         var binding = layout.Get(_control);
         if (_section == BindingSection.Buttons)
         {
-            ButtonEditor.Load(binding, profile.Layouts, _runtime.Document.Profiles, _runtime.Document.Outputs);
+            ButtonEditor.Load(binding, profile.ModifierChoices(_runtime.Document.LayoutLibrary), _runtime.Document.Profiles, _runtime.Document.Outputs);
             SyncBindingActions();
             return;
         }
@@ -851,7 +949,7 @@ public sealed partial class ControlsPage : UserControl
         string hint = locked
             ? $"On {profile.BaseLayout.Name}, this control changes layouts or opens the keyboard, so it stays available in every layout."
             : "Pick the output this button should drive, then choose the action.";
-        Editor.Show(ControlNames.Display(_control), hint, binding, profile.Layouts, !locked, !locked, _layoutId != profile.BaseLayout.Id && !locked, _runtime.Document.Outputs);
+        Editor.Show(ControlNames.Display(_control), hint, binding, profile.ModifierChoices(_runtime.Document.LayoutLibrary), !locked, !locked, _layoutId != profile.BaseLayout.Id && !locked, _runtime.Document.Outputs);
         SyncBindingActions();
     }
 
@@ -871,6 +969,7 @@ public sealed partial class ControlsPage : UserControl
         if (binding != null)
             ButtonCatalog.Aim(binding, _runtime.Document.Outputs);
         WorkingLayout().Set(_control, binding);
+        IncludeModifiers(binding);
         SyncBindingActions();
         if (_section == BindingSection.Buttons)
             RefreshButtonList();
@@ -880,6 +979,7 @@ public sealed partial class ControlsPage : UserControl
     {
         if (!AnyDraftDirty())
             return;
+        IncludeDraftModifiers();
         var profile = _runtime.Editing;
         var layout = InputLayout.FromProfile(profile, _runtime.ActiveInputKey);
         foreach (var pair in _drafts)
@@ -905,6 +1005,7 @@ public sealed partial class ControlsPage : UserControl
     {
         if (!_drafts.ContainsKey(_layoutId) || !DraftDirty(_layoutId))
             return;
+        IncludeDraftModifiers();
         var draft = _drafts[_layoutId];
         var layout = SelectedLayout();
         _runtime.SaveLayoutBindings(layout.Id, draft);
@@ -1270,17 +1371,6 @@ public sealed partial class ControlsPage : UserControl
         string key = _runtime.ActiveInputKey;
         var match = DualSenseConnection.List().FirstOrDefault(item => item.Path == key);
         return string.IsNullOrEmpty(match.Path) ? "No controller" : match.Name;
-    }
-
-    private string UniqueName(string seed)
-    {
-        var names = _runtime.Document.Profiles.Select(profile => profile.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (!names.Contains(seed))
-            return seed;
-        int n = 2;
-        while (names.Contains(seed + " " + n))
-            n++;
-        return seed + " " + n;
     }
 
     private Button Tab(string text, bool on, Action click, bool baseLayout = false)

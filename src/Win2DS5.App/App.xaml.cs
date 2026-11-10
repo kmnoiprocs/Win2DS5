@@ -121,6 +121,53 @@ public partial class App : Application
         _window.ExitAfterReplacement();
     }
 
+    public static void ResetToStock()
+    {
+        try
+        {
+            Runtime?.Dispose();
+        }
+        catch
+        {
+            // Profiles are rewritten on disk either way.
+        }
+
+        ShellFiles.Clear();
+        ProfileStore.ResetToStock();
+        try
+        {
+            _mutex?.ReleaseMutex();
+            _mutex?.Dispose();
+            _mutex = null;
+        }
+        catch (ApplicationException)
+        {
+        }
+
+        var path = Environment.ProcessPath;
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true,
+                });
+            }
+            catch (Win32Exception)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
+        if (_window != null)
+            _window.ExitAfterReplacement();
+        Environment.Exit(0);
+    }
+
     private static void ReclaimMutex()
     {
         if (_mutex != null)
@@ -140,7 +187,7 @@ public partial class App : Application
         Runtime.SetLightbar(accent.R, accent.G, accent.B);
     }
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         _mutex = new Mutex(true, MutexName, out bool created);
         if (!created)
@@ -154,11 +201,39 @@ public partial class App : Application
             StartupRegistration.SetEnabled(true);
         var accent = Theme.Hex(settings.Accent);
         Theme.Apply(IsDark(settings), accent);
+        StartHidden = Environment.GetCommandLineArgs().Any(arg => arg.Equals("--background", StringComparison.OrdinalIgnoreCase));
+        bool check = settings.CheckForUpdates && InstalledCopy.IsInstalled;
+        if (check || InstalledCopy.PendingReady())
+        {
+            var splash = new UpdateSplash();
+            splash.Activate();
+            bool install = await InstalledCopy.RunAtStartupAsync(splash.Set, check);
+            if (install)
+            {
+                splash.Set("Installing the new build…");
+                await Task.Delay(400);
+                InstalledCopy.BeginApply();
+                try
+                {
+                    splash.Close();
+                }
+                catch
+                {
+                    // The process is leaving for the updater.
+                }
+
+                Environment.Exit(0);
+                return;
+            }
+
+            await Task.Delay(800);
+            splash.Close();
+        }
+
         Runtime = new DesktopRuntime(_document, ProfileStore.DefaultPath);
         Runtime.SetLightbar(accent.R, accent.G, accent.B);
         Runtime.Start();
         InstalledCopy.StartWatching(() => _document.Settings.CheckForUpdates);
-        StartHidden = Environment.GetCommandLineArgs().Any(arg => arg.Equals("--background", StringComparison.OrdinalIgnoreCase));
         _window = new MainWindow();
         if (StartHidden)
             _window.AppWindow.Hide();

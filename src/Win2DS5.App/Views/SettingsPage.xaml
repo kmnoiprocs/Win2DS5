@@ -114,7 +114,7 @@
                         <StackPanel Spacing="2" VerticalAlignment="Center">
                             <TextBlock Text="Install published builds automatically" />
                             <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap"
-                                       Text="A downloaded build replaces this one the next time Win2DS5 starts." />
+                                       Text="Win2DS5 looks for a published build before it opens. A download found while this window is already open waits until you restart." />
                         </StackPanel>
                         <ToggleSwitch x:Name="UpdateToggle" HorizontalAlignment="Right" OnContent="" OffContent="" MinWidth="0" Toggled="OnUpdates" />
                     </Grid>
@@ -123,6 +123,24 @@
                         <Button x:Name="RestartUpdateButton" Content="Restart and update" Style="{StaticResource PrimaryButtonStyle}"
                                 Visibility="Collapsed" Click="OnRestartUpdate" />
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="Reset Win2DS5" Style="{StaticResource SectionText}" />
+                            <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap"
+                                       Text="Deletes every profile, layout, and setting on this PC, including shell images, then restores DS4, XBOX, Touchpad, Sticks, and the default appearance." />
+                        </StackPanel>
+                        <Button Content="Reset app" Grid.Column="1" VerticalAlignment="Center"
+                                Style="{StaticResource QuietButtonStyle}" Click="OnReset" />
+                    </Grid>
                 </StackPanel>
             </Border>
 

@@ -21,4 +21,19 @@ public static class ShellFiles
         if (path.Length > 0)
             File.Delete(path);
     }
+
+    public static void Clear()
+    {
+        try
+        {
+            if (Directory.Exists(Folder))
+                Directory.Delete(Folder, true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
 }

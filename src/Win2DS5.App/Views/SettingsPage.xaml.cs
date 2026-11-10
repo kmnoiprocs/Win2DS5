@@ -194,6 +194,24 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnRestartUpdate(object sender, RoutedEventArgs e) => App.InstallPendingUpdate();
 
+    private async void OnReset(object sender, RoutedEventArgs e)
+    {
+        if (XamlRoot == null)
+            return;
+        var dialog = new ContentDialog
+        {
+            Title = "Reset Win2DS5",
+            Content = "This deletes every profile, layout, and setting on this PC, including shell images, then restores DS4, XBOX, Touchpad, Sticks, and the default appearance. Win2DS5 restarts when that finishes.",
+            PrimaryButtonText = "Reset",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+        App.ResetToStock();
+    }
+
     private void OnStartup(object sender, RoutedEventArgs e)
     {
         if (_loading)

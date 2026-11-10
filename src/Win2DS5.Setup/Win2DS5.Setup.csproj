@@ -9,7 +9,7 @@
     <AssemblyName>Win2DS5-Setup</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\Win2DS5.App\Assets\Win2DS5.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
+    <Version>1.0.2</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

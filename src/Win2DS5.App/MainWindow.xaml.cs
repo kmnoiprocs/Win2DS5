@@ -76,7 +76,7 @@ public sealed partial class MainWindow : Window
             if (updateAnnounced)
                 return;
             updateAnnounced = true;
-            _toast.Show("Update downloaded. It installs the next time Win2DS5 starts.");
+            _toast.Show("Update downloaded. Restart from Settings to install it.");
         });
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _timer.Tick += (_, _) => Refresh();

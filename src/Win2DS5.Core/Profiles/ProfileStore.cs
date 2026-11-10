@@ -95,6 +95,31 @@ public static class ProfileStore
         Save(path, document);
     }
 
+    public static ProfileDocument ResetToStock(string? path = null)
+    {
+        path ??= DefaultPath;
+        TryDelete(path);
+        TryDelete(path + ".broken");
+        var document = CreateDefault();
+        Save(path, document);
+        return document;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
     private static void EnsureKind(ProfileDocument document, OutputDeviceKind kind)
     {
         document.Outputs ??= [];
