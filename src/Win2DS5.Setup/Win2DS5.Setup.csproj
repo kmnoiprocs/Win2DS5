@@ -19,6 +19,10 @@
     <ProjectReference Include="..\Win2DS5.Core\Win2DS5.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="..\Win2DS5.App\Assets\Win2DS5.ico" Link="Assets\Win2DS5.ico" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(PayloadZip)' != ''">
     <EmbeddedResource Include="$(PayloadZip)">
       <LogicalName>Win2DS5.Setup.payload.zip</LogicalName>

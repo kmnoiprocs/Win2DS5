@@ -25,6 +25,8 @@ internal sealed class InstallResult
     public string Summary { get; init; } = "";
     public string Details { get; init; } = "";
     public bool CanLaunch { get; init; }
+    public bool NeedsRestart { get; init; }
+    public string RestartMessage { get; init; } = "";
     public string ExePath { get; init; } = "";
 }
 
@@ -168,22 +170,29 @@ internal static class SetupEngine
                     notes.Add("Windows did not allow the installer to pin Win2DS5. Open the Start menu, right-click Win2DS5, and choose Pin to taskbar.");
             }
 
-            var reboot = false;
-            if (request.HidHide)
-                reboot |= await RunDriver("https://api.github.com/repos/nefarius/HidHide/releases/latest", "HidHide", notes, log, cancellation);
-            if (request.ViGEmBus)
-                reboot |= await RunDriver("https://api.github.com/repos/nefarius/ViGEmBus/releases/latest", "ViGEmBus", notes, log, cancellation);
-
-            if (reboot)
-                notes.Add("Restart Windows before the new driver can be used.");
+            var hid = request.HidHide
+                ? await RunDriver("https://api.github.com/repos/nefarius/HidHide/releases/latest", "HidHide", notes, log, cancellation)
+                : new DriverOutcome(false, false, "");
+            var vigem = request.ViGEmBus
+                ? await RunDriver("https://api.github.com/repos/nefarius/ViGEmBus/releases/latest", "ViGEmBus", notes, log, cancellation)
+                : new DriverOutcome(false, false, "");
+            bool hidRestart = hid.Ok || hid.Reboot;
+            bool restart = hidRestart || vigem.Reboot;
+            string restartMessage = hidRestart
+                ? "HidHide is installed. Restart this computer before it can hide the controller from games."
+                : "ViGEmBus is installed. Restart this computer before the virtual controller can be used.";
+            if (restart)
+                notes.Add(restartMessage);
             notes.Add("New builds published to GitHub install themselves the next time Win2DS5 starts.");
             log.Report("Finished.");
             return new InstallResult
             {
                 Succeeded = true,
-                Summary = "Win2DS5 is installed.",
+                Summary = restart ? "Win2DS5 is installed. A restart is needed." : "Win2DS5 is installed.",
                 Details = string.Join(Environment.NewLine + Environment.NewLine, notes),
                 CanLaunch = true,
+                NeedsRestart = restart,
+                RestartMessage = restart ? restartMessage : "",
                 ExePath = exe,
             };
         }
@@ -212,18 +221,29 @@ internal static class SetupEngine
         });
     }
 
-    private static async Task<bool> RunDriver(string api, string label, List<string> notes, IProgress<string> log, CancellationToken cancellation)
+    public static void RestartWindows()
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "shutdown.exe",
+            Arguments = "/r /t 0",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        });
+    }
+
+    private static async Task<DriverOutcome> RunDriver(string api, string label, List<string> notes, IProgress<string> log, CancellationToken cancellation)
     {
         try
         {
             var outcome = await DriverSetup.InstallAsync(api, log, label, cancellation);
             notes.Add(outcome.Message);
-            return outcome.Reboot;
+            return outcome;
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or IOException or JsonException)
         {
             notes.Add($"{label} could not be installed ({ex.Message}). You can download it later from the Win2DS5 settings page.");
-            return false;
+            return new DriverOutcome(false, false, "");
         }
     }
 

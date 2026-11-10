@@ -77,9 +77,21 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_result is { Succeeded: true, CanLaunch: true } && LaunchBox.IsChecked == true && _result.ExePath.Length > 0)
+        bool restart = RestartBox.Visibility == Visibility.Visible && RestartBox.IsChecked == true;
+        if (!restart && _result is { Succeeded: true, CanLaunch: true } && LaunchBox.IsChecked == true && _result.ExePath.Length > 0)
             SetupEngine.Launch(_result.ExePath);
+        if (restart)
+            SetupEngine.RestartWindows();
         Close();
+    }
+
+    private void OnRestartChoice(object sender, RoutedEventArgs e)
+    {
+        if (_step != 3)
+            return;
+        bool restart = RestartBox.IsChecked == true;
+        NextButton.Content = restart ? "Restart" : "Close";
+        LaunchBox.Visibility = restart || _result is not { CanLaunch: true } ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void PrepareDrivers()
@@ -119,8 +131,13 @@ public partial class MainWindow : Window
         _busy = false;
         DoneSummary.Text = _result.Summary;
         DoneDetails.Text = _result.Details;
-        LaunchBox.Visibility = _result.CanLaunch ? Visibility.Visible : Visibility.Collapsed;
-        LaunchBox.IsChecked = _result.CanLaunch;
+        bool restart = _result.Succeeded && _result.NeedsRestart;
+        RestartPrompt.Text = _result.RestartMessage;
+        RestartPrompt.Visibility = restart ? Visibility.Visible : Visibility.Collapsed;
+        RestartBox.Visibility = restart ? Visibility.Visible : Visibility.Collapsed;
+        RestartBox.IsChecked = restart;
+        LaunchBox.Visibility = _result.CanLaunch && !restart ? Visibility.Visible : Visibility.Collapsed;
+        LaunchBox.IsChecked = _result.CanLaunch && !restart;
         Progress.IsIndeterminate = false;
         Progress.Value = 100;
         Show(3);
@@ -140,6 +157,7 @@ public partial class MainWindow : Window
         {
             0 => "Continue",
             1 => "Install",
+            3 when RestartBox.Visibility == Visibility.Visible && RestartBox.IsChecked == true => "Restart",
             _ => "Close",
         };
         Heading.Text = step switch
