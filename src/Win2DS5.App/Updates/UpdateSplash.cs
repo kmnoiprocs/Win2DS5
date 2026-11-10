@@ -84,7 +84,7 @@ public sealed class UpdateSplash : Window
         presenter.IsResizable = false;
         AppWindow.SetPresenter(presenter);
         AppWindow.Resize(new SizeInt32(460, 228));
-        var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+        var area = DisplayArea.Primary.WorkArea;
         AppWindow.Move(new PointInt32(
             area.X + (area.Width - 460) / 2,
             area.Y + (area.Height - 228) / 2));

@@ -7,7 +7,7 @@
     <AssemblyName>Win2DS5</AssemblyName>
     <ApplicationManifest Condition="'$(Win2DS5Publish)' != 'true'">app.manifest</ApplicationManifest>
     <ApplicationManifest Condition="'$(Win2DS5Publish)' == 'true'">app.publish.manifest</ApplicationManifest>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationIcon>Assets\Win2DS5.ico</ApplicationIcon>
     <Platforms>x64</Platforms>

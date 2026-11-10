@@ -202,34 +202,74 @@ public partial class App : Application
         var accent = Theme.Hex(settings.Accent);
         Theme.Apply(IsDark(settings), accent);
         StartHidden = Environment.GetCommandLineArgs().Any(arg => arg.Equals("--background", StringComparison.OrdinalIgnoreCase));
-        bool check = settings.CheckForUpdates && InstalledCopy.IsInstalled;
-        if (check || InstalledCopy.PendingReady())
+        UpdateSplash? splash = null;
+        bool install = false;
+        try
         {
-            var splash = new UpdateSplash();
-            splash.Activate();
-            bool install = await InstalledCopy.RunAtStartupAsync(splash.Set, check);
-            if (install)
+            bool check = settings.CheckForUpdates && InstalledCopy.IsInstalled;
+            if (check || InstalledCopy.PendingReady())
             {
-                splash.Set("Installing the new build…");
-                await Task.Delay(400);
-                InstalledCopy.BeginApply();
-                try
-                {
-                    splash.Close();
-                }
-                catch
-                {
-                    // The process is leaving for the updater.
-                }
-
-                Environment.Exit(0);
-                return;
+                splash = new UpdateSplash();
+                splash.Activate();
+                install = await InstalledCopy.RunAtStartupAsync(splash.Set, check);
             }
-
-            await Task.Delay(800);
-            splash.Close();
+        }
+        catch (Exception ex)
+        {
+            WriteCrash(ex);
+            install = false;
         }
 
+        if (install)
+        {
+            try
+            {
+                splash?.Set("Installing the new build…");
+            }
+            catch (Exception ex)
+            {
+                WriteCrash(ex);
+            }
+
+            await Task.Delay(400);
+            InstalledCopy.BeginApply();
+            Environment.Exit(0);
+            return;
+        }
+
+        try
+        {
+            if (splash != null)
+                await OnWindowThread(splash, OpenStudio);
+            else
+                OpenStudio();
+        }
+        catch (Exception ex)
+        {
+            WriteCrash(ex);
+            if (_window == null)
+                OpenStudio();
+        }
+
+        if (splash != null)
+        {
+            await Task.Delay(700);
+            try
+            {
+                await OnWindowThread(splash, splash.Close);
+            }
+            catch (Exception ex)
+            {
+                WriteCrash(ex);
+            }
+        }
+    }
+
+    private void OpenStudio()
+    {
+        if (_window != null)
+            return;
+        var accent = Theme.Accent;
         Runtime = new DesktopRuntime(_document, ProfileStore.DefaultPath);
         Runtime.SetLightbar(accent.R, accent.G, accent.B);
         Runtime.Start();
@@ -239,6 +279,35 @@ public partial class App : Application
             _window.AppWindow.Hide();
         else
             _window.Activate();
+    }
+
+    private static Task OnWindowThread(Window window, Action action)
+    {
+        var queue = window.DispatcherQueue;
+        if (queue.HasThreadAccess)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!queue.TryEnqueue(() =>
+        {
+            try
+            {
+                action();
+                done.TrySetResult();
+            }
+            catch (Exception ex)
+            {
+                done.TrySetException(ex);
+            }
+        }))
+        {
+            done.TrySetException(new InvalidOperationException("Win2DS5 lost its window."));
+        }
+
+        return done.Task;
     }
 
     private static bool IsDark(AppSettings settings) =>
